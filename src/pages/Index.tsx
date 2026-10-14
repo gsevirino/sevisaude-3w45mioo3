@@ -215,7 +215,7 @@ export default function Index() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-medium shadow-sm transition"
             >
               <Pill className="w-3.5 h-3.5" />
-              <span>Gerenciar remédios</span>
+              <span>Gerenciar medicamentos</span>
             </Link>
           </div>
         </div>

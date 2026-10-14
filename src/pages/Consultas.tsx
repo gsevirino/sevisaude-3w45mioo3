@@ -691,7 +691,7 @@ export default function Consultas() {
                                   key={lm.id}
                                   className="px-2.5 py-1 rounded-full bg-[#E7F0E3] text-[#26362B] text-[11px] font-medium border border-[#DCE9D4]"
                                 >
-                                  Remédio: <strong>{lm.nome}</strong> (
+                                  Medicamento: <strong>{lm.nome}</strong> (
                                   {lm.dosagem || lm.concentracao})
                                 </span>
                               ))}
@@ -986,7 +986,7 @@ export default function Consultas() {
                     rows={3}
                     value={resumoOrientacoes}
                     onChange={(e) => setResumoOrientacoes(e.target.value)}
-                    placeholder="Ex.: Manter remédio de uso contínuo pela manhã; caminhar 30 min por dia; beber 2 litros de água..."
+                    placeholder="Ex.: Manter medicamento de uso contínuo pela manhã; caminhar 30 min por dia; beber 2 litros de água..."
                     className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                   />
                 </div>

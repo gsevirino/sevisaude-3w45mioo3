@@ -76,7 +76,7 @@ export default function Signup() {
             Criar meu prontuário
           </h1>
           <p className="text-[#6B7A6F] mt-2 text-sm font-sans">
-            Comece a organizar remédios, consultas e exames em um só lugar seguro
+            Comece a organizar medicamentos, consultas e exames em um só lugar seguro
           </p>
         </div>
 

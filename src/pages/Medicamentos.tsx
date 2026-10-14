@@ -527,7 +527,7 @@ export default function Medicamentos() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por remédio, princípio ativo ou médico..."
+            placeholder="Buscar por medicamento, princípio ativo ou médico..."
             className="w-full pl-9 pr-4 py-2 rounded-full border border-[#D9E2D4] bg-[#FDFCFB] text-xs text-[#26362B] focus:ring-2 focus:ring-[#4C7A5A] outline-none"
           />
         </div>
@@ -552,7 +552,7 @@ export default function Medicamentos() {
           <p className="text-xs text-[#6B7A6F] mt-2 leading-relaxed">
             {searchQuery || statusFilter !== 'todos'
               ? 'Tente ajustar os filtros ou termo de busca acima.'
-              : 'Cadastre seus remédios com receita médica e acompanhe dosagens e histórico de alterações.'}
+              : 'Cadastre seus medicamentos com receita médica e acompanhe dosagens e histórico de alterações.'}
           </p>
           <button
             onClick={openNewForm}
@@ -1319,7 +1319,7 @@ export default function Medicamentos() {
               </h3>
               <p className="text-xs text-[#6B7A6F] mt-1">
                 Atenção: remover <strong>{medToDelete.nome}</strong> apagará as definições do
-                remédio. Para manter o histórico intacto, prefira marcar como{' '}
+                medicamento. Para manter o histórico intacto, prefira marcar como{' '}
                 <strong>Suspenso</strong> ou <strong>Concluído</strong>.
               </p>
             </div>
