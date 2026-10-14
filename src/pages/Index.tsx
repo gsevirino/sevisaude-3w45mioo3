@@ -174,12 +174,15 @@ export default function Index() {
 
   const formatDate = (iso?: string) => formatarData(iso)
 
-  const todayFormatted = new Intl.DateTimeFormat('pt-BR', {
+  const rawDateFormatted = new Intl.DateTimeFormat('pt-BR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   }).format(now)
+
+  // Formata com a primeira letra maiúscula (ex.: "Quarta-feira, 14 de outubro de 2026")
+  const todayFormatted = rawDateFormatted.charAt(0).toUpperCase() + rawDateFormatted.slice(1)
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -195,9 +198,8 @@ export default function Index() {
             <h1 className="font-serif italic text-3xl md:text-4xl text-[#26362B] font-semibold tracking-tight">
               Olá, {firstName} 👋
             </h1>
-            <p className="text-[#6B7A6F] text-sm mt-1 capitalize">
-              {todayFormatted} • Aqui está o resumo da sua saúde hoje.
-            </p>
+            <p className="text-[#4C7A5A] text-xs font-medium mt-1">{todayFormatted}</p>
+            <p className="text-[#6B7A6F] text-sm mt-0.5">Aqui está o resumo da sua saúde hoje.</p>
           </div>
 
           <div className="flex items-center gap-2">
