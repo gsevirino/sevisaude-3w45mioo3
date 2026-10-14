@@ -161,11 +161,14 @@ export default function Calendario() {
   })
 
   exames.forEach((e) => {
-    const d = e.data_realizado
-      ? e.data_realizado.split('T')[0]
-      : e.data_solicitado
-        ? e.data_solicitado.split('T')[0]
-        : ''
+    const d =
+      e.data_hora_agendada && e.data_hora_agendada.includes('/')
+        ? e.data_hora_agendada.split(' ')[0].split('/').reverse().join('-')
+        : e.data_realizado
+          ? e.data_realizado.split('T')[0]
+          : e.data_solicitado
+            ? e.data_solicitado.split('T')[0]
+            : ''
     if (!d) return
     if (!eventsByDate[d]) eventsByDate[d] = []
     eventsByDate[d].push({

@@ -74,7 +74,7 @@ export default function Index() {
   const firstName = user?.name ? user.name.split(' ')[0] : 'você'
 
   // Calculations
-  const activeMeds = medicamentos.filter((m) => m.status === 'ativo')
+  const activeMeds = medicamentos.filter((m) => m.status === 'em uso')
 
   // Find upcoming appointments
   const now = new Date()
@@ -86,7 +86,7 @@ export default function Index() {
 
   const nextConsulta = upcomingConsultas[0]
 
-  const pendingExames = exames.filter((e) => e.status === 'Solicitado')
+  const pendingExames = exames.filter((e) => e.status === 'Pendente' || e.status === 'Agendado')
 
   // Total docs = separate documentos + exames with attachments
   const totalAttachments =
@@ -124,9 +124,9 @@ export default function Index() {
       title: `Início de medicação: ${m.nome}`,
       subtitle: `${m.dosagem} • ${m.forma} • Prescrito por ${m.expand?.medico?.nome || 'Médico'}`,
       type: 'medicamento',
-      badge: m.status === 'ativo' ? 'Ativo' : 'Encerrado',
+      badge: m.status === 'em uso' ? 'Em uso' : m.status,
       badgeColor:
-        m.status === 'ativo' ? 'bg-[#DCE9D4] text-[#26362B]' : 'bg-gray-100 text-gray-600',
+        m.status === 'em uso' ? 'bg-[#DCE9D4] text-[#26362B]' : 'bg-amber-100 text-amber-800',
     })
   })
 
@@ -159,11 +159,13 @@ export default function Index() {
       type: 'exame',
       badge: e.status,
       badgeColor:
-        e.status === 'Concluído'
+        e.status === 'Finalizado'
           ? 'bg-[#DCE9D4] text-[#26362B]'
-          : e.status === 'Em análise'
+          : e.status === 'Realizado'
             ? 'bg-teal-100 text-[#5B9A8B]'
-            : 'bg-orange-100 text-orange-800',
+            : e.status === 'Agendado'
+              ? 'bg-blue-100 text-blue-900'
+              : 'bg-orange-100 text-orange-800',
     })
   })
 
@@ -478,11 +480,13 @@ export default function Index() {
 
                   <span
                     className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${
-                      e.status === 'Concluído'
+                      e.status === 'Finalizado'
                         ? 'bg-[#DCE9D4] text-[#26362B]'
-                        : e.status === 'Em análise'
+                        : e.status === 'Realizado'
                           ? 'bg-teal-100 text-[#5B9A8B]'
-                          : 'bg-orange-100 text-orange-900 animate-pulse'
+                          : e.status === 'Agendado'
+                            ? 'bg-blue-100 text-blue-900'
+                            : 'bg-amber-100 text-amber-900'
                     }`}
                   >
                     {e.status}

@@ -1,19 +1,25 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useState, useEffect, useRef } from 'react'
 import { getMedicamentos } from '@/services/healthService'
 import type { Medicamento } from '@/types/health'
+import { useAuth } from '@/context/AuthContext'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import {
   CreditCard,
   Printer,
-  FileDown,
-  Pill,
-  Leaf,
-  Clock,
   Heart,
+  Clock,
+  ShieldCheck,
+  AlertTriangle,
+  PhoneCall,
+  Check,
   Calendar,
-  Sparkles,
-  Loader2,
+  AlertCircle,
+  Maximize2,
+  Minimize2,
+  FileText,
+  User,
+  Activity,
+  Layers,
 } from 'lucide-react'
 
 export default function CartaoSaude() {
@@ -22,201 +28,487 @@ export default function CartaoSaude() {
   const [medicamentos, setMedicamentos] = useState<Medicamento[]>([])
   const [loading, setLoading] = useState(true)
 
-  const loadData = useCallback(async () => {
-    try {
-      const data = await getMedicamentos()
-      setMedicamentos(data)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  // Seleção de itens pelo usuário para constar no cartão
+  const [selectedMeds, setSelectedMeds] = useState<string[]>([])
+  const [includeAlergias, setIncludeAlergias] = useState(true)
+  const [includeCondicoes, setIncludeCondicoes] = useState(true)
+  const [includeEmergencia, setIncludeEmergencia] = useState(true)
+  const [includeHorarios, setIncludeHorarios] = useState(true)
+
+  // Modo de visualização: compacto (tamanho padrão cartão de visita / bancário frente e verso) vs ampliado (folha completa / expandido)
+  const [formatoAmpliado, setFormatoAmpliado] = useState(false)
+
+  const printAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    loadData()
-  }, [loadData, refreshKey])
+    async function load() {
+      try {
+        const meds = await getMedicamentos()
+        // Apenas medicamentos "em uso"
+        const emUso = meds.filter((m) => m.status === 'em uso')
+        setMedicamentos(emUso)
+        // Por padrão, todos os em uso ficam selecionados
+        setSelectedMeds(emUso.map((m) => m.id))
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [refreshKey])
 
-  const activeMeds = medicamentos.filter((m) => m.status === 'ativo')
+  const toggleMed = (id: string) => {
+    setSelectedMeds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    )
+  }
 
   const handlePrint = () => {
     window.print()
   }
 
-  const currentDateFormatted = new Intl.DateTimeFormat('pt-BR', {
-    day: 'numeric',
-    month: 'long',
+  const currentDate = new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-  }).format(new Date())
+  })
+
+  const medsToDisplay = medicamentos.filter((m) => selectedMeds.includes(m.id))
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header (hidden in print) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
+    <div className="space-y-8 animate-fade-in pb-12">
+      {/* Header (oculto na impressão) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="font-serif italic text-3xl md:text-4xl text-[#26362B] font-semibold tracking-tight">
             Meu cartão de saúde
           </h1>
           <p className="text-[#6B7A6F] text-sm mt-1">
-            Gere uma lista de medicamentos ativos diagramada para levar em consultas, viagens ou na
-            carteira
+            Gere seu cartão compacto de emergência (frente e verso) com medicamentos em uso,
+            alergias e contatos
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setFormatoAmpliado(!formatoAmpliado)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-[#D9E2D4] bg-white hover:bg-[#F6F4EF] text-xs font-semibold text-[#26362B] transition cursor-pointer"
+          >
+            {formatoAmpliado ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span>Formato Cartão Compacto</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Formato Folha Ampliada</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold shadow-md hover:shadow-lg transition cursor-pointer"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir cartão</span>
+            <span>Imprimir / Salvar PDF</span>
           </button>
         </div>
       </div>
 
-      {/* Helpful Hint banner (no-print) */}
-      <div className="no-print p-4 rounded-2xl bg-[#E7F0E3]/70 border border-[#DCE9D4] flex items-center justify-between gap-4 text-xs text-[#26362B]">
+      {/* Seletor de Informações (Oculto na impressão) */}
+      <div className="bg-white rounded-3xl p-6 border border-[#D9E2D4] shadow-sm space-y-5 print:hidden">
         <div className="flex items-center gap-2.5">
-          <Sparkles className="w-4 h-4 text-[#4C7A5A] shrink-0" />
+          <Layers className="w-5 h-5 text-[#4C7A5A]" />
+          <h2 className="font-serif italic text-lg text-[#26362B] font-semibold">
+            Personalizar dados exibidos no Cartão
+          </h2>
+        </div>
+
+        {/* Opções globais */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
+            <input
+              type="checkbox"
+              checked={includeAlergias}
+              onChange={(e) => setIncludeAlergias(e.target.checked)}
+              className="rounded text-[#4C7A5A] focus:ring-[#4C7A5A]"
+            />
+            <span className="font-semibold text-[#26362B]">Alergias conhecidas</span>
+          </label>
+
+          <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
+            <input
+              type="checkbox"
+              checked={includeCondicoes}
+              onChange={(e) => setIncludeCondicoes(e.target.checked)}
+              className="rounded text-[#4C7A5A] focus:ring-[#4C7A5A]"
+            />
+            <span className="font-semibold text-[#26362B]">Condições de saúde</span>
+          </label>
+
+          <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
+            <input
+              type="checkbox"
+              checked={includeEmergencia}
+              onChange={(e) => setIncludeEmergencia(e.target.checked)}
+              className="rounded text-[#4C7A5A] focus:ring-[#4C7A5A]"
+            />
+            <span className="font-semibold text-[#26362B]">Contato de emergência</span>
+          </label>
+
+          <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
+            <input
+              type="checkbox"
+              checked={includeHorarios}
+              onChange={(e) => setIncludeHorarios(e.target.checked)}
+              className="rounded text-[#4C7A5A] focus:ring-[#4C7A5A]"
+            />
+            <span className="font-semibold text-[#26362B]">Horários de tomada</span>
+          </label>
+        </div>
+
+        {/* Seleção de medicamentos */}
+        <div>
+          <span className="block text-xs font-semibold text-[#26362B] mb-2 uppercase tracking-wider">
+            Selecione quais medicamentos em uso incluir:
+          </span>
+          {medicamentos.length === 0 ? (
+            <p className="text-xs text-[#6B7A6F] italic">
+              Nenhum medicamento com status "em uso" encontrado no seu prontuário.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {medicamentos.map((m) => {
+                const isSelected = selectedMeds.includes(m.id)
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleMed(m.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer border ${
+                      isSelected
+                        ? 'bg-[#4C7A5A] text-white border-[#4C7A5A]'
+                        : 'bg-white text-[#6B7A6F] border-[#D9E2D4] hover:bg-[#F6F4EF]'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3.5 h-3.5" />}
+                    <span>{m.nome}</span>
+                    <span className="opacity-80 text-[10px]">
+                      (
+                      {m.dose_prescrita
+                        ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                        : m.concentracao || m.dosagem || 'dose padrão'}
+                      )
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Alerta de privacidade */}
+        <div className="p-3 rounded-2xl bg-[#F6F4EF] text-xs text-[#6B7A6F] flex items-center gap-2 border border-[#D9E2D4]">
+          <ShieldCheck className="w-4 h-4 text-[#4C7A5A] shrink-0" />
           <span>
-            Ao clicar em <strong>"Imprimir cartão"</strong>, o navegador isolará apenas a ficha
-            abaixo em tamanho A4 retrato, ocultando o menu e cabeçalhos. Você também pode salvar
-            como PDF na tela de impressão.
+            <strong>Privacidade preservada:</strong> CPF, RG e endereço residencial completo são
+            omitidos por padrão do cartão impresso para prevenir fraudes em caso de perda.
           </span>
         </div>
       </div>
 
-      {/* Printable Card Container */}
-      <div className="flex justify-center">
-        {loading ? (
-          <div className="text-center py-24 space-y-3">
-            <Loader2 className="w-8 h-8 text-[#4C7A5A] animate-spin mx-auto" />
-            <p className="text-sm font-serif italic text-[#26362B]">
-              Montando seu cartão de saúde...
-            </p>
+      {/* ÁREA DE IMPRESSÃO / PRÉVIA DO CARTÃO */}
+      <div ref={printAreaRef} className="space-y-6">
+        {!formatoAmpliado ? (
+          /* FORMATO COMPACTO DE CARTÃO (Tamanho aproximado de cartão bancário / carteira frente e verso) */
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-8 py-4">
+            {/* FRENTE DO CARTÃO (85.6mm x 53.98mm aprox ratio) */}
+            <div className="w-full max-w-[420px] min-h-[250px] bg-gradient-to-br from-[#26362B] via-[#2F4435] to-[#1C281F] text-white rounded-3xl p-6 shadow-xl border border-white/20 flex flex-col justify-between relative overflow-hidden">
+              {/* Marca d'água sutil */}
+              <div className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+
+              <div>
+                <div className="flex items-center justify-between border-b border-white/15 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#4C7A5A] flex items-center justify-center">
+                      <Heart className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <span className="font-serif italic text-base font-bold tracking-wide">
+                        VerdeVida
+                      </span>
+                      <span className="block text-[8px] uppercase tracking-widest text-[#DCE9D4]">
+                        Cartão de Emergência
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full font-semibold border border-white/10">
+                    Frente
+                  </span>
+                </div>
+
+                {/* Nome do Paciente */}
+                <div className="mt-3">
+                  <span className="text-[9px] uppercase tracking-wider text-white/60 block">
+                    Titular do Prontuário
+                  </span>
+                  <h3 className="font-serif italic text-xl font-bold text-white tracking-wide">
+                    {user?.name || 'Paciente VerdeVida'}
+                  </h3>
+                  {user?.meta?.dataNascimento && (
+                    <span className="text-[10px] text-white/80">
+                      Nasc: {user.meta.dataNascimento.split('-').reverse().join('/')}
+                    </span>
+                  )}
+                </div>
+
+                {/* Alergias Conhecidas */}
+                {includeAlergias && (
+                  <div className="mt-3 p-2 rounded-xl bg-red-950/40 border border-red-500/30">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-red-300 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-red-400" />
+                      Alergias e reações adversas:
+                    </span>
+                    <p className="text-[10px] text-red-100 font-medium leading-tight mt-0.5">
+                      {user?.alergias || 'Nenhuma alergia conhecida relatada'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Condições Clínicas */}
+                {includeCondicoes && user?.condicoes_saude && (
+                  <div className="mt-2 text-[10px] text-white/90">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-white/60 block">
+                      Condições de saúde:
+                    </span>
+                    <p className="leading-tight">{user.condicoes_saude}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Contato de emergência no rodapé da frente */}
+              {includeEmergencia && (
+                <div className="pt-2 mt-2 border-t border-white/15 flex items-center justify-between text-[10px]">
+                  <div className="flex items-center gap-1.5">
+                    <PhoneCall className="w-3.5 h-3.5 text-[#DCE9D4]" />
+                    <span>
+                      Emergência: <strong>{user?.contato_emergencia_nome || 'A definir'}</strong>{' '}
+                      {user?.contato_emergencia_parentesco
+                        ? `(${user.contato_emergencia_parentesco})`
+                        : ''}
+                    </span>
+                  </div>
+                  <strong className="text-[#DCE9D4] font-mono">
+                    {user?.contato_emergencia_telefone || '—'}
+                  </strong>
+                </div>
+              )}
+            </div>
+
+            {/* VERSO DO CARTÃO (Medicamentos em uso detalhados) */}
+            <div className="w-full max-w-[420px] min-h-[250px] bg-[#FDFCFB] text-[#26362B] rounded-3xl p-6 shadow-xl border-2 border-[#D9E2D4] flex flex-col justify-between relative overflow-hidden">
+              <div>
+                <div className="flex items-center justify-between border-b border-[#D9E2D4] pb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#4C7A5A]">
+                    <Activity className="w-3.5 h-3.5" />
+                    <span>Medicamentos em uso contínuo</span>
+                  </div>
+                  <span className="text-[9px] uppercase tracking-wider bg-[#E7F0E3] px-2 py-0.5 rounded-full font-bold text-[#26362B]">
+                    Verso
+                  </span>
+                </div>
+
+                {/* Lista de medicamentos compacta */}
+                <div className="mt-2.5 space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                  {medsToDisplay.length === 0 ? (
+                    <p className="text-[11px] text-[#6B7A6F] italic text-center py-4">
+                      Nenhum medicamento selecionado.
+                    </p>
+                  ) : (
+                    medsToDisplay.map((m) => {
+                      const doseText = m.dose_prescrita
+                        ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                        : m.concentracao || m.dosagem || ''
+                      const freqText = m.frequencia || ''
+                      const horarios =
+                        includeHorarios && Array.isArray(m.horarios) && m.horarios.length > 0
+                          ? m.horarios.join(', ')
+                          : ''
+
+                      return (
+                        <div
+                          key={m.id}
+                          className="text-[10px] p-1.5 rounded-lg bg-[#F6F4EF] border border-[#D9E2D4]/70 flex items-start justify-between gap-1"
+                        >
+                          <div>
+                            <strong className="text-[#26362B] block leading-tight">{m.nome}</strong>
+                            <span className="text-[#4C7A5A] font-medium block">
+                              {doseText} {m.via_administracao ? `• ${m.via_administracao}` : ''}{' '}
+                              {freqText ? `• ${freqText}` : ''}
+                            </span>
+                          </div>
+                          {horarios && (
+                            <span className="font-mono text-[9px] text-[#26362B] font-semibold bg-white px-1.5 py-0.5 rounded border border-[#D9E2D4] shrink-0">
+                              {horarios}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Rodapé com aviso obrigatório e data de atualização */}
+              <div className="pt-2 border-t border-[#D9E2D4] text-[9px] text-[#6B7A6F] space-y-0.5">
+                <p className="font-semibold text-amber-900 text-[8.5px] italic">
+                  Aviso: confira as informações com as prescrições médicas atuais.
+                </p>
+                <div className="flex items-center justify-between">
+                  <span>Atualizado em: {currentDate}</span>
+                  <span>VerdeVida Prontuário Pessoal</span>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="print-card-container w-full max-w-[800px] bg-white rounded-3xl p-8 md:p-12 border-2 border-[#4C7A5A]/30 shadow-lg relative overflow-hidden">
-            {/* Top Organic decorative badge */}
-            <div className="flex items-start justify-between pb-6 border-b-2 border-[#4C7A5A]/20">
+          /* FORMATO FOLHA AMPLIADA (Para guardar na bolsa, pasta de exames ou fixar na porta da geladeira) */
+          <div className="bg-white rounded-3xl p-8 md:p-10 border-2 border-[#D9E2D4] shadow-md max-w-2xl mx-auto space-y-6">
+            <div className="flex items-center justify-between border-b-2 border-[#D9E2D4] pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#4C7A5A] text-white flex items-center justify-center shadow">
-                  <Leaf className="w-6 h-6" />
+                <div className="w-10 h-10 rounded-2xl bg-[#4C7A5A] text-white flex items-center justify-center">
+                  <Heart className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="font-serif italic font-bold text-2xl text-[#26362B] block leading-tight">
-                    VerdeVida
-                  </span>
-                  <span className="text-[11px] text-[#4C7A5A] font-semibold uppercase tracking-wider">
-                    Cartão de Saúde Pessoal
-                  </span>
+                  <h2 className="font-serif italic text-2xl font-bold text-[#26362B]">
+                    VerdeVida — Cartão Clínico do Paciente
+                  </h2>
+                  <p className="text-xs text-[#6B7A6F]">Prontuário Pessoal e Ficha de Emergência</p>
                 </div>
               </div>
-
               <div className="text-right text-xs text-[#6B7A6F]">
-                <p className="font-semibold text-[#26362B]">Emissão do cartão:</p>
-                <p>{currentDateFormatted}</p>
+                <span>Última atualização:</span>
+                <strong className="block text-[#26362B]">{currentDate}</strong>
               </div>
             </div>
 
-            {/* Patient Name Heading */}
-            <div className="my-6">
-              <h2 className="font-serif italic text-2xl md:text-3xl text-[#26362B] font-semibold">
-                Meus Medicamentos — {user?.name || user?.email || 'Titular'}
-              </h2>
-              <p className="text-xs text-[#6B7A6F] mt-1">
-                Apresente este cartão ao seu médico, farmacêutico ou em casos de urgência
-                hospitalar.
-              </p>
+            {/* Dados do Paciente */}
+            <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] text-xs">
+              <div>
+                <span className="text-[#6B7A6F] block">Nome do Titular:</span>
+                <strong className="text-sm text-[#26362B]">{user?.name || 'Paciente'}</strong>
+              </div>
+              <div>
+                <span className="text-[#6B7A6F] block">Contato de Emergência:</span>
+                <strong className="text-sm text-[#26362B]">
+                  {user?.contato_emergencia_nome || '—'}{' '}
+                  {user?.contato_emergencia_telefone ? `• ${user.contato_emergencia_telefone}` : ''}
+                </strong>
+              </div>
             </div>
 
-            {/* Empty State */}
-            {activeMeds.length === 0 ? (
-              <div className="py-16 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-[#E7F0E3] text-[#4C7A5A] flex items-center justify-center mx-auto">
-                  <Pill className="w-6 h-6" />
+            {/* Alergias e Condições */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {includeAlergias && (
+                <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs">
+                  <span className="font-bold uppercase tracking-wider text-red-800 flex items-center gap-1.5 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    Alergias e reações adversas
+                  </span>
+                  <p className="text-red-950 font-medium">
+                    {user?.alergias || 'Nenhuma alergia conhecida declarada.'}
+                  </p>
                 </div>
-                <p className="font-serif italic text-lg text-[#26362B]">
-                  Nenhum medicamento ativo no momento.
-                </p>
-                <p className="text-xs text-[#6B7A6F]">
-                  Assim que você cadastrar novos remédios na aba "Meus Medicamentos", eles
-                  aparecerão automaticamente aqui.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {activeMeds.map((m, index) => {
-                  const horariosList = Array.isArray(m.horarios) ? m.horarios : []
-                  return (
-                    <div
-                      key={m.id}
-                      className="py-4 border-b border-dashed border-[#A8C3A0] last:border-b-0 space-y-2"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-[#E7F0E3] text-[#4C7A5A] font-bold text-xs flex items-center justify-center shrink-0">
-                            {index + 1}
-                          </span>
-                          <span className="font-serif italic text-lg text-[#26362B] font-semibold">
-                            {m.nome}
-                          </span>
-                          <span className="text-sm font-medium text-[#4C7A5A]">
-                            ({m.dosagem} — {m.forma})
-                          </span>
-                        </div>
+              )}
 
-                        {/* Prescriber */}
-                        <span className="text-xs text-[#6B7A6F]">
-                          Prescritor:{' '}
-                          <strong className="text-[#26362B]">
-                            {m.expand?.medico?.nome || 'Não especificado'}
-                          </strong>
-                        </span>
-                      </div>
+              {includeCondicoes && (
+                <div className="p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] text-xs">
+                  <span className="font-bold uppercase tracking-wider text-[#26362B] block mb-1">
+                    Condições de saúde relevantes
+                  </span>
+                  <p className="text-[#385942]">
+                    {user?.condicoes_saude || 'Nenhuma condição crônica registrada.'}
+                  </p>
+                </div>
+              )}
+            </div>
 
-                      {/* Schedule & Notes */}
-                      <div className="flex flex-wrap items-center gap-4 text-xs text-[#385942] pl-7">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                          <span>
-                            Horários:{' '}
-                            <strong className="text-[#26362B]">
-                              {horariosList.length > 0
-                                ? horariosList.join(', ')
-                                : 'Conforme prescrição'}
-                            </strong>
-                          </span>
-                        </div>
-
-                        {m.laboratorio && (
-                          <span>
-                            Lab: <strong>{m.laboratorio}</strong>
-                          </span>
-                        )}
-
-                        {m.observacoes && (
-                          <span className="italic text-[#6B7A6F]">• "{m.observacoes}"</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Bottom Card Footer */}
-            <div className="mt-8 pt-6 border-t-2 border-[#4C7A5A]/20 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#6B7A6F]">
-              <div className="flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                <span>Mantenha este documento atualizado a cada consulta médica.</span>
-              </div>
-              <span className="font-serif italic text-[11px] text-[#4C7A5A]">
-                VerdeVida — saúde controlada pelo próprio usuário
+            {/* Medicamentos em uso tabela detalhada */}
+            <div className="space-y-3">
+              <span className="font-bold uppercase tracking-wider text-xs text-[#26362B] flex items-center gap-2">
+                <Activity className="w-4 h-4 text-[#4C7A5A]" />
+                Medicamentos em uso e posologia atual
               </span>
+
+              <div className="border border-[#D9E2D4] rounded-2xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F6F4EF] border-b border-[#D9E2D4] text-[#6B7A6F]">
+                    <tr>
+                      <th className="p-3">Medicamento</th>
+                      <th className="p-3">Dose / Via</th>
+                      <th className="p-3">Frequência</th>
+                      {includeHorarios && <th className="p-3">Horários</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#D9E2D4]">
+                    {medsToDisplay.map((m) => (
+                      <tr key={m.id} className="hover:bg-gray-50/50">
+                        <td className="p-3 font-semibold text-[#26362B]">
+                          {m.nome}
+                          {m.principio_ativo && (
+                            <span className="block text-[10px] text-[#6B7A6F] font-normal">
+                              ({m.principio_ativo})
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {m.dose_prescrita
+                            ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                            : m.concentracao || m.dosagem || '—'}
+                          {m.via_administracao && ` • ${m.via_administracao}`}
+                        </td>
+                        <td className="p-3">{m.frequencia || 'Conforme receita'}</td>
+                        {includeHorarios && (
+                          <td className="p-3 font-mono text-[#4C7A5A]">
+                            {Array.isArray(m.horarios) ? m.horarios.join(', ') : '—'}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Aviso Obrigatório */}
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">
+                  Aviso de Segurança ao Paciente e Profissionais:
+                </span>
+                <p>
+                  Confira sempre as informações com as prescrições médicas atuais. Em caso de
+                  dúvidas, consulte seu médico assistente.
+                </p>
+              </div>
             </div>
           </div>
         )}
+      </div>
+
+      {/* Dica de impressão */}
+      <div className="bg-[#F6F4EF] rounded-3xl p-5 border border-[#D9E2D4] text-xs text-[#6B7A6F] flex items-center justify-between print:hidden">
+        <div className="flex items-center gap-2">
+          <Printer className="w-4 h-4 text-[#4C7A5A]" />
+          <span>
+            Dica: no diálogo de impressão do navegador, selecione <strong>"Salvar como PDF"</strong>{' '}
+            para ter o cartão salvo no celular.
+          </span>
+        </div>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   getMedicamentos,
   createMedicamento,
@@ -6,8 +6,16 @@ import {
   deleteMedicamento,
   getAlteracoesMedicamento,
   getMedicos,
+  getFileUrl,
 } from '@/services/healthService'
-import type { Medicamento, Medico, FormaFarmaceutica, AlteracaoMedicamento } from '@/types/health'
+import type {
+  Medicamento,
+  Medico,
+  FormaFarmaceutica,
+  StatusMedicamento,
+  TipoUsoMedicamento,
+  AlteracaoMedicamento,
+} from '@/types/health'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -26,17 +34,52 @@ import {
   Loader2,
   Power,
   RotateCcw,
+  Paperclip,
+  ExternalLink,
+  Pause,
+  AlertTriangle,
+  Info,
+  ShieldCheck,
+  Filter,
+  Search,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
-const FORMAS: FormaFarmaceutica[] = [
-  'comprimido',
-  'cápsula',
-  'xarope',
-  'solução',
-  'injetável',
-  'creme',
-  'outro',
+const FORMAS: { label: string; value: FormaFarmaceutica }[] = [
+  { label: 'Comprimido', value: 'comprimido' },
+  { label: 'Cápsula', value: 'cápsula' },
+  { label: 'Xarope', value: 'xarope' },
+  { label: 'Solução oral', value: 'solução' },
+  { label: 'Gotas', value: 'gotas' },
+  { label: 'Injetável', value: 'injetável' },
+  { label: 'Creme', value: 'creme' },
+  { label: 'Pomada', value: 'pomada' },
+  { label: 'Spray', value: 'spray' },
+  { label: 'Adesivo transdérmico', value: 'adesivo' },
+  { label: 'Outro', value: 'outro' },
+]
+
+const STATUS_FILTERS: (StatusMedicamento | 'todos')[] = [
+  'todos',
+  'em uso',
+  'pausado',
+  'suspenso',
+  'concluído',
+]
+
+const VIAS_ADMINISTRACAO = [
+  'Oral',
+  'Sublingual',
+  'Inalatória',
+  'Tópica / Cutânea',
+  'Oftálmica',
+  'Otológica',
+  'Nasal',
+  'Intramuscular (IM)',
+  'Intravenosa (IV)',
+  'Subcutânea (SC)',
+  'Retal',
+  'Outra',
 ]
 
 export default function Medicamentos() {
@@ -49,6 +92,10 @@ export default function Medicamentos() {
   useRealtime('medicamentos', () => triggerRefresh())
   useRealtime('alteracoes_medicamentos', () => triggerRefresh())
 
+  // Filters & Search
+  const [statusFilter, setStatusFilter] = useState<StatusMedicamento | 'todos'>('todos')
+  const [searchQuery, setSearchQuery] = useState('')
+
   // Modal form states
   const [formOpen, setFormOpen] = useState(false)
   const [editingMed, setEditingMed] = useState<Medicamento | null>(null)
@@ -56,6 +103,17 @@ export default function Medicamentos() {
 
   // Form fields
   const [nome, setNome] = useState('')
+  const [principioAtivo, setPrincipioAtivo] = useState('')
+  const [apresentacao, setApresentacao] = useState('')
+  const [concentracao, setConcentracao] = useState('')
+  const [dosePrescrita, setDosePrescrita] = useState('')
+  const [unidadeDose, setUnidadeDose] = useState('comprimido')
+  const [viaAdministracao, setViaAdministracao] = useState('Oral')
+  const [frequencia, setFrequencia] = useState('')
+  const [instrucoesPrescricao, setInstrucoesPrescricao] = useState('')
+  const [tipoUso, setTipoUso] = useState<TipoUsoMedicamento>('contínuo')
+  const [dataPrescricao, setDataPrescricao] = useState('')
+  const [status, setStatus] = useState<StatusMedicamento>('em uso')
   const [dosagem, setDosagem] = useState('')
   const [forma, setForma] = useState<FormaFarmaceutica>('comprimido')
   const [laboratorio, setLaboratorio] = useState('')
@@ -65,12 +123,20 @@ export default function Medicamentos() {
   const [horarios, setHorarios] = useState<string[]>(['08:00'])
   const [observacoes, setObservacoes] = useState('')
   const [novoHorario, setNovoHorario] = useState('12:00')
+  const [receitaFile, setReceitaFile] = useState<File | null>(null)
+  const receitaInputRef = useRef<HTMLInputElement>(null)
 
-  // Edit / End reason modal
-  const [reasonModalOpen, setReasonModalOpen] = useState(false)
-  const [reasonAction, setReasonAction] = useState<'edit' | 'end' | 'reactivate'>('edit')
-  const [reasonText, setReasonText] = useState('')
-  const [targetMedForAction, setTargetMedForAction] = useState<Medicamento | null>(null)
+  // Audit modal for updates or status changes
+  const [auditModalOpen, setAuditModalOpen] = useState(false)
+  const [auditFieldLabel, setAuditFieldLabel] = useState('Alteração de dados / posologia')
+  const [auditOldValue, setAuditOldValue] = useState('')
+  const [auditNewValue, setAuditNewValue] = useState('')
+  const [auditReason, setAuditReason] = useState('')
+  const [pendingAction, setPendingAction] = useState<
+    | { type: 'submit_edit'; formData: FormData }
+    | { type: 'status_change'; target: Medicamento; newStatus: StatusMedicamento }
+    | null
+  >(null)
 
   // Delete modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -104,6 +170,17 @@ export default function Medicamentos() {
   const openNewForm = () => {
     setEditingMed(null)
     setNome('')
+    setPrincipioAtivo('')
+    setApresentacao('')
+    setConcentracao('')
+    setDosePrescrita('')
+    setUnidadeDose('comprimido')
+    setViaAdministracao('Oral')
+    setFrequencia('12 em 12 horas')
+    setInstrucoesPrescricao('')
+    setTipoUso('contínuo')
+    setDataPrescricao(new Date().toISOString().split('T')[0])
+    setStatus('em uso')
     setDosagem('')
     setForma('comprimido')
     setLaboratorio('')
@@ -112,20 +189,33 @@ export default function Medicamentos() {
     setDataFim('')
     setHorarios(['08:00'])
     setObservacoes('')
+    setReceitaFile(null)
     setFormOpen(true)
   }
 
   const openEditForm = (m: Medicamento) => {
     setEditingMed(m)
-    setNome(m.nome)
-    setDosagem(m.dosagem)
-    setForma(m.forma)
+    setNome(m.nome || '')
+    setPrincipioAtivo(m.principio_ativo || '')
+    setApresentacao(m.apresentacao || '')
+    setConcentracao(m.concentracao || '')
+    setDosePrescrita(m.dose_prescrita || '')
+    setUnidadeDose(m.unidade_dose || 'comprimido')
+    setViaAdministracao(m.via_administracao || 'Oral')
+    setFrequencia(m.frequencia || '')
+    setInstrucoesPrescricao(m.instrucoes_prescricao || '')
+    setTipoUso(m.tipo_uso || 'contínuo')
+    setDataPrescricao(m.data_prescricao ? m.data_prescricao.split('T')[0] : '')
+    setStatus(m.status || 'em uso')
+    setDosagem(m.dosagem || '')
+    setForma(m.forma || 'comprimido')
     setLaboratorio(m.laboratorio || '')
     setMedicoId(m.medico || '')
     setDataInicio(m.data_inicio ? m.data_inicio.split('T')[0] : '')
     setDataFim(m.data_fim ? m.data_fim.split('T')[0] : '')
     setHorarios(Array.isArray(m.horarios) && m.horarios.length > 0 ? m.horarios : ['08:00'])
     setObservacoes(m.observacoes || '')
+    setReceitaFile(null)
     setFormOpen(true)
   }
 
@@ -136,53 +226,85 @@ export default function Medicamentos() {
   }
 
   const handleRemoveHorario = (time: string) => {
-    if (horarios.length <= 1) {
-      toast({
-        title: 'Horário obrigatório',
-        description: 'Mantenha pelo menos um horário de administração.',
-        variant: 'destructive',
-      })
-      return
-    }
     setHorarios(horarios.filter((h) => h !== time))
   }
 
-  // Pre-save check: if editing, ask for reason
+  // Pre-save check
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!nome.trim() || !dosagem.trim() || !dataInicio) {
+    if (!nome.trim()) {
       toast({
-        title: 'Campos obrigatórios',
-        description: 'Nome, dosagem e data de início são necessários.',
+        title: 'Nome obrigatório',
+        description: 'Informe o nome comercial ou designação do medicamento.',
         variant: 'destructive',
       })
       return
     }
 
+    const calculatedDosagem = dosagem.trim() || concentracao.trim() || dosePrescrita.trim() || ''
+
+    const formData = new FormData()
+    formData.append('nome', nome.trim())
+    if (principioAtivo.trim()) formData.append('principio_ativo', principioAtivo.trim())
+    if (apresentacao.trim()) formData.append('apresentacao', apresentacao.trim())
+    if (concentracao.trim()) formData.append('concentracao', concentracao.trim())
+    if (dosePrescrita.trim()) formData.append('dose_prescrita', dosePrescrita.trim())
+    if (unidadeDose.trim()) formData.append('unidade_dose', unidadeDose.trim())
+    if (viaAdministracao.trim()) formData.append('via_administracao', viaAdministracao.trim())
+    if (frequencia.trim()) formData.append('frequencia', frequencia.trim())
+    if (instrucoesPrescricao.trim())
+      formData.append('instrucoes_prescricao', instrucoesPrescricao.trim())
+    if (tipoUso) formData.append('tipo_uso', tipoUso)
+    if (dataPrescricao) formData.append('data_prescricao', dataPrescricao)
+    formData.append('status', status)
+    formData.append('dosagem', calculatedDosagem)
+    formData.append('forma', forma)
+    if (laboratorio.trim()) formData.append('laboratorio', laboratorio.trim())
+    if (medicoId) formData.append('medico', medicoId)
+    if (dataInicio) formData.append('data_inicio', dataInicio)
+    if (dataFim) formData.append('data_fim', dataFim)
+    formData.append('horarios', JSON.stringify(horarios))
+    if (observacoes.trim()) formData.append('observacoes', observacoes.trim())
+    if (receitaFile) formData.append('receita_arquivo', receitaFile)
+
     if (editingMed) {
-      // Prompt reason modal before saving edit
-      setReasonAction('edit')
-      setReasonText('')
-      setReasonModalOpen(true)
+      // Calculate what changed to pre-populate audit
+      const changes: string[] = []
+      if (editingMed.dose_prescrita !== dosePrescrita || editingMed.dosagem !== calculatedDosagem) {
+        changes.push(
+          `Dose: "${editingMed.dose_prescrita || editingMed.dosagem || '—'}" → "${dosePrescrita || calculatedDosagem}"`,
+        )
+      }
+      if (editingMed.frequencia !== frequencia) {
+        changes.push(`Frequência: "${editingMed.frequencia || '—'}" → "${frequencia || '—'}"`)
+      }
+      if (editingMed.status !== status) {
+        changes.push(`Status: "${editingMed.status}" → "${status}"`)
+      }
+      if (editingMed.instrucoes_prescricao !== instrucoesPrescricao) {
+        changes.push('Instruções da prescrição atualizadas')
+      }
+
+      setAuditFieldLabel(
+        changes.length > 0 ? changes.join('; ') : 'Revisão de posologia/dados cadastrais',
+      )
+      setAuditOldValue(
+        `Dose: ${editingMed.dose_prescrita || editingMed.dosagem || '—'} | Freq: ${editingMed.frequencia || '—'} | Status: ${editingMed.status}`,
+      )
+      setAuditNewValue(
+        `Dose: ${dosePrescrita || calculatedDosagem || '—'} | Freq: ${frequencia || '—'} | Status: ${status}`,
+      )
+      setAuditReason('')
+      setPendingAction({ type: 'submit_edit', formData })
+      setAuditModalOpen(true)
     } else {
       // Direct create
       setSaving(true)
       try {
-        await createMedicamento({
-          nome: nome.trim(),
-          dosagem: dosagem.trim(),
-          forma,
-          laboratorio: laboratorio.trim(),
-          medico: medicoId || undefined,
-          data_inicio: dataInicio,
-          data_fim: dataFim || undefined,
-          horarios,
-          observacoes: observacoes.trim(),
-          status: 'ativo',
-        })
+        await createMedicamento(formData)
         toast({
           title: 'Medicamento cadastrado!',
-          description: `${nome} foi incluído ao seu prontuário.`,
+          description: `${nome} foi incluído ao seu prontuário com sucesso.`,
         })
         setFormOpen(false)
         triggerRefresh()
@@ -198,108 +320,76 @@ export default function Medicamentos() {
     }
   }
 
-  const handleConfirmReason = async () => {
-    if (reasonAction === 'edit' && editingMed) {
-      setSaving(true)
-      try {
-        await updateMedicamento(
-          editingMed.id,
-          {
-            nome: nome.trim(),
-            dosagem: dosagem.trim(),
-            forma,
-            laboratorio: laboratorio.trim(),
-            medico: medicoId || undefined,
-            data_inicio: dataInicio,
-            data_fim: dataFim || undefined,
-            horarios,
-            observacoes: observacoes.trim(),
-          },
-          reasonText.trim() || 'Alteração de dados cadastrais/posologia',
-        )
+  const handleStatusChangeRequest = (m: Medicamento, newStatus: StatusMedicamento) => {
+    let actionLabel = ''
+    if (newStatus === 'pausado') actionLabel = 'Pausa temporária de uso'
+    else if (newStatus === 'suspenso') actionLabel = 'Suspensão médica do medicamento'
+    else if (newStatus === 'concluído') actionLabel = 'Tratamento finalizado / concluído'
+    else actionLabel = 'Retomada de uso do medicamento'
+
+    setAuditFieldLabel(`Status: ${m.status} → ${newStatus} (${actionLabel})`)
+    setAuditOldValue(`Status anterior: ${m.status}`)
+    setAuditNewValue(`Novo status: ${newStatus}`)
+    setAuditReason('')
+    setPendingAction({ type: 'status_change', target: m, newStatus })
+    setAuditModalOpen(true)
+  }
+
+  const confirmAuditAction = async () => {
+    if (!pendingAction) return
+    if (!auditReason.trim()) {
+      toast({
+        title: 'Motivo obrigatório',
+        description: 'Para manter o registro imutável de auditoria, informe o motivo da alteração.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSaving(true)
+    try {
+      if (pendingAction.type === 'submit_edit' && editingMed) {
+        await updateMedicamento(editingMed.id, pendingAction.formData, {
+          campo_alterado: auditFieldLabel,
+          valor_anterior: auditOldValue,
+          novo_valor: auditNewValue,
+          motivo: auditReason.trim(),
+        })
         toast({
           title: 'Medicamento atualizado!',
-          description: 'Alterações e histórico registrados com sucesso.',
+          description: 'Alterações e auditoria imutável gravadas com sucesso.',
         })
-        setReasonModalOpen(false)
+        setAuditModalOpen(false)
         setFormOpen(false)
         triggerRefresh()
-      } catch (err: any) {
-        toast({
-          title: 'Erro ao atualizar',
-          description: err?.message || 'Tente novamente.',
-          variant: 'destructive',
+      } else if (pendingAction.type === 'status_change') {
+        const payload: Partial<Medicamento> = { status: pendingAction.newStatus }
+        if (pendingAction.newStatus === 'concluído') {
+          payload.data_fim = new Date().toISOString().split('T')[0]
+        }
+        await updateMedicamento(pendingAction.target.id, payload, {
+          campo_alterado: `Status alterado de "${pendingAction.target.status}" para "${pendingAction.newStatus}"`,
+          valor_anterior: pendingAction.target.status,
+          novo_valor: pendingAction.newStatus,
+          motivo: auditReason.trim(),
         })
-      } finally {
-        setSaving(false)
-      }
-    } else if (reasonAction === 'end' && targetMedForAction) {
-      setSaving(true)
-      try {
-        await updateMedicamento(
-          targetMedForAction.id,
-          {
-            status: 'encerrado',
-            data_fim: new Date().toISOString().split('T')[0],
-          },
-          reasonText.trim() || 'Tratamento encerrado pelo paciente/médico',
-        )
         toast({
-          title: 'Medicamento encerrado',
-          description: `${targetMedForAction.nome} foi marcado como encerrado.`,
+          title: 'Status atualizado!',
+          description: `${pendingAction.target.nome} agora está ${pendingAction.newStatus}.`,
         })
-        setReasonModalOpen(false)
+        setAuditModalOpen(false)
         triggerRefresh()
-      } catch (err: any) {
-        toast({
-          title: 'Erro ao encerrar',
-          description: err?.message || 'Tente novamente.',
-          variant: 'destructive',
-        })
-      } finally {
-        setSaving(false)
       }
-    } else if (reasonAction === 'reactivate' && targetMedForAction) {
-      setSaving(true)
-      try {
-        await updateMedicamento(
-          targetMedForAction.id,
-          {
-            status: 'ativo',
-            data_fim: undefined,
-          },
-          reasonText.trim() || 'Medicamento reativado',
-        )
-        toast({
-          title: 'Medicamento reativado!',
-          description: `${targetMedForAction.nome} está ativo novamente.`,
-        })
-        setReasonModalOpen(false)
-        triggerRefresh()
-      } catch (err: any) {
-        toast({
-          title: 'Erro ao reativar',
-          description: err?.message || 'Tente novamente.',
-          variant: 'destructive',
-        })
-      } finally {
-        setSaving(false)
-      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao gravar auditoria',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+      setPendingAction(null)
     }
-  }
-
-  const promptEndMedication = (m: Medicamento) => {
-    setTargetMedForAction(m)
-    setReasonAction('end')
-    setReasonText('')
-    setReasonModalOpen(true)
-  }
-
-  const promptReactivateMedication = (m: Medicamento) => {
-    setTargetMedForAction(m)
-    setReasonAction('reactivate')
-    setReasonText('')
-    setReasonModalOpen(true)
   }
 
   const promptDelete = (m: Medicamento) => {
@@ -344,7 +434,7 @@ export default function Medicamentos() {
     } catch (err) {
       toast({
         title: 'Erro ao carregar histórico',
-        description: 'Não foi possível buscar as alterações anteriores.',
+        description: 'Não foi possível buscar os registros de auditoria.',
         variant: 'destructive',
       })
     } finally {
@@ -359,6 +449,49 @@ export default function Medicamentos() {
     return `${d}/${m}/${y}`
   }
 
+  const formatDateTime = (iso?: string) => {
+    if (!iso) return ''
+    try {
+      const d = new Date(iso)
+      return d.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    } catch {
+      return formatDate(iso)
+    }
+  }
+
+  // Identificar campos incompletos sem inventar valores
+  const getIncompleteFields = (m: Medicamento): string[] => {
+    const missing: string[] = []
+    if (!m.principio_ativo) missing.push('Princípio ativo')
+    if (!m.apresentacao && !m.forma) missing.push('Apresentação / Forma')
+    if (!m.concentracao && !m.dosagem) missing.push('Concentração / Dosagem')
+    if (!m.dose_prescrita) missing.push('Dose prescrita')
+    if (!m.frequencia) missing.push('Frequência')
+    if (!m.via_administracao) missing.push('Via de administração')
+    if (!m.medico) missing.push('Médico prescritor')
+    if (!m.data_prescricao && !m.data_inicio) missing.push('Data da prescrição/início')
+    if (!m.receita_arquivo) missing.push('Receita anexada')
+    return missing
+  }
+
+  // Filter list
+  const filteredMeds = medicamentos.filter((m) => {
+    const matchesStatus = statusFilter === 'todos' || m.status === statusFilter
+    const q = searchQuery.toLowerCase().trim()
+    if (!q) return matchesStatus
+    const matchName = m.nome?.toLowerCase().includes(q)
+    const matchPrincipio = m.principio_ativo?.toLowerCase().includes(q)
+    const matchLab = m.laboratorio?.toLowerCase().includes(q)
+    const matchDoc = m.expand?.medico?.nome?.toLowerCase().includes(q)
+    return matchesStatus && (matchName || matchPrincipio || matchLab || matchDoc)
+  })
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
@@ -368,7 +501,8 @@ export default function Medicamentos() {
             Meus medicamentos
           </h1>
           <p className="text-[#6B7A6F] text-sm mt-1">
-            Controle de doses, horários, médicos prescritores e histórico detalhado de alterações
+            Prontuário completo: princípio ativo, posologia, receita anexada, 4 estados e auditoria
+            imutável
           </p>
         </div>
 
@@ -381,6 +515,43 @@ export default function Medicamentos() {
         </button>
       </div>
 
+      {/* Filter and Search Bar */}
+      <div className="bg-white rounded-3xl p-4 md:p-5 border border-[#D9E2D4] shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Status Chips */}
+        <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+          {STATUS_FILTERS.map((st) => (
+            <button
+              key={st}
+              onClick={() => setStatusFilter(st)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold capitalize transition cursor-pointer ${
+                statusFilter === st
+                  ? 'bg-[#4C7A5A] text-white shadow-xs'
+                  : 'bg-[#F6F4EF] text-[#6B7A6F] hover:bg-[#E7F0E3] hover:text-[#26362B]'
+              }`}
+            >
+              {st === 'todos' ? 'Todos' : st}
+              {st !== 'todos' && (
+                <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-black/10 text-[10px]">
+                  {medicamentos.filter((m) => m.status === st).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative w-full md:w-72">
+          <Search className="w-4 h-4 text-[#6B7A6F] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por remédio, princípio ativo ou médico..."
+            className="w-full pl-9 pr-4 py-2 rounded-full border border-[#D9E2D4] bg-[#FDFCFB] text-xs text-[#26362B] focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+          />
+        </div>
+      </div>
+
       {/* Medication Cards List */}
       {loading ? (
         <div className="text-center py-16 space-y-3">
@@ -389,17 +560,18 @@ export default function Medicamentos() {
             Carregando seus medicamentos...
           </p>
         </div>
-      ) : medicamentos.length === 0 ? (
+      ) : filteredMeds.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 border border-[#D9E2D4] text-center max-w-lg mx-auto">
           <div className="w-16 h-16 rounded-full bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center mx-auto mb-4">
             <Pill className="w-8 h-8" />
           </div>
           <h3 className="font-serif italic text-xl text-[#26362B] font-medium">
-            Nenhum medicamento cadastrado
+            Nenhum medicamento encontrado
           </h3>
           <p className="text-xs text-[#6B7A6F] mt-2 leading-relaxed">
-            Cadastre os remédios e suplementos que você toma no dia a dia para acompanhar horários e
-            manter seu prontuário em dia.
+            {searchQuery || statusFilter !== 'todos'
+              ? 'Tente ajustar os filtros ou termo de busca acima.'
+              : 'Cadastre seus remédios com receita médica e acompanhe dosagens e histórico de alterações.'}
           </p>
           <button
             onClick={openNewForm}
@@ -411,167 +583,325 @@ export default function Medicamentos() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {medicamentos.map((m) => {
-            const isAtivo = m.status === 'ativo'
+          {filteredMeds.map((m) => {
+            const isEmUso = m.status === 'em uso'
+            const isPausado = m.status === 'pausado'
+            const isSuspenso = m.status === 'suspenso'
+            const isConcluido = m.status === 'concluído'
             const isHistoryOpen = !!expandedHistory[m.id]
             const historyList = expandedHistory[m.id] || []
             const horariosList = Array.isArray(m.horarios) ? m.horarios : []
+            const incompleteList = getIncompleteFields(m)
+            const receitaUrl = m.receita_arquivo
+              ? getFileUrl('medicamentos', m.id, m.receita_arquivo)
+              : ''
 
             return (
               <div
                 key={m.id}
-                className={`bg-white rounded-3xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md ${
-                  isAtivo ? 'border-[#D9E2D4]' : 'border-gray-200 opacity-85 bg-gray-50/50'
+                className={`bg-white rounded-3xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between ${
+                  isEmUso
+                    ? 'border-[#D9E2D4]'
+                    : isPausado
+                      ? 'border-amber-300 bg-amber-50/20'
+                      : isSuspenso
+                        ? 'border-red-200 bg-red-50/20'
+                        : 'border-gray-200 opacity-85 bg-gray-50/50'
                 }`}
               >
-                {/* Top Row: Name + Status */}
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <h3 className="font-serif italic text-2xl text-[#26362B] font-semibold leading-tight">
-                      {m.nome}
-                    </h3>
-                    <p className="text-sm text-[#4C7A5A] font-medium mt-0.5">
-                      {m.dosagem} — {m.forma}
-                      {m.laboratorio ? ` • Lab. ${m.laboratorio}` : ''}
-                    </p>
-                  </div>
+                <div>
+                  {/* Top Row: Name + Status badge */}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <h3 className="font-serif italic text-2xl text-[#26362B] font-semibold leading-tight">
+                        {m.nome}
+                      </h3>
+                      {m.principio_ativo && (
+                        <p className="text-xs text-[#6B7A6F] font-medium mt-0.5">
+                          Princípio ativo:{' '}
+                          <strong className="text-[#26362B]">{m.principio_ativo}</strong>
+                        </p>
+                      )}
+                      <p className="text-xs text-[#4C7A5A] font-semibold mt-1">
+                        {m.concentracao || m.dosagem || 'Concentração não informada'} •{' '}
+                        {m.apresentacao || m.forma || 'Forma não informada'}
+                        {m.laboratorio ? ` • Lab. ${m.laboratorio}` : ''}
+                      </p>
+                    </div>
 
-                  <span
-                    className={`text-xs font-semibold px-3 py-1 rounded-full shrink-0 ${
-                      isAtivo
-                        ? 'bg-[#DCE9D4] text-[#26362B] ring-1 ring-[#A8C3A0]/60'
-                        : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    {isAtivo ? 'Ativo' : 'Encerrado'}
-                  </span>
-                </div>
-
-                {/* Schedules */}
-                <div className="mt-4 pt-4 border-t border-[#D9E2D4]/50">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider mb-2">
-                    <Clock className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                    <span>Horários de tomada:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {horariosList.length > 0 ? (
-                      horariosList.map((h) => (
-                        <span
-                          key={h}
-                          className="px-3 py-1 rounded-full bg-[#E7F0E3] text-[#26362B] text-xs font-semibold border border-[#DCE9D4]"
-                        >
-                          {h}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className={`text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider text-[11px] ${
+                          isEmUso
+                            ? 'bg-[#DCE9D4] text-[#26362B] ring-1 ring-[#A8C3A0]/60'
+                            : isPausado
+                              ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300'
+                              : isSuspenso
+                                ? 'bg-red-100 text-red-800 ring-1 ring-red-300'
+                                : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {m.status}
+                      </span>
+                      {m.tipo_uso && (
+                        <span className="text-[10px] text-[#6B7A6F] font-medium bg-[#F6F4EF] px-2 py-0.5 rounded-full border border-[#D9E2D4]">
+                          Uso {m.tipo_uso}
                         </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-[#6B7A6F] italic">Nenhum horário definido</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Posologia Detalhada */}
+                  <div className="mt-3 p-3.5 rounded-2xl bg-[#F6F4EF]/70 border border-[#D9E2D4]/60 space-y-1.5 text-xs text-[#26362B]">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[#6B7A6F] block text-[11px]">Dose prescrita:</span>
+                        <span className="font-semibold">
+                          {m.dose_prescrita
+                            ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                            : 'Não informada'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#6B7A6F] block text-[11px]">Via / Frequência:</span>
+                        <span className="font-semibold">
+                          {m.via_administracao || 'Oral'} {m.frequencia ? `• ${m.frequencia}` : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    {m.instrucoes_prescricao && (
+                      <p className="pt-1.5 border-t border-[#D9E2D4]/50 italic text-[#385942]">
+                        "{m.instrucoes_prescricao}"
+                      </p>
                     )}
                   </div>
-                </div>
 
-                {/* Details: Prescriber, Dates, Notes */}
-                <div className="mt-4 space-y-1.5 text-xs text-[#6B7A6F]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-[#26362B]">Prescritor:</span>
-                    <span>{m.expand?.medico?.nome || 'Não especificado'}</span>
+                  {/* Schedules */}
+                  <div className="mt-3 pt-3 border-t border-[#D9E2D4]/50">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider mb-2">
+                      <Clock className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                      <span>Horários programados:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {horariosList.length > 0 ? (
+                        horariosList.map((h) => (
+                          <span
+                            key={h}
+                            className="px-2.5 py-0.5 rounded-full bg-[#E7F0E3] text-[#26362B] text-xs font-semibold border border-[#DCE9D4]"
+                          >
+                            {h}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-[#6B7A6F] italic">Sem horários fixos</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                    <span>
-                      Início em: <strong>{formatDate(m.data_inicio)}</strong>
-                      {m.data_fim ? ` • Término: ${formatDate(m.data_fim)}` : ''}
-                    </span>
+
+                  {/* Prescriber & Dates */}
+                  <div className="mt-3 space-y-1 text-xs text-[#6B7A6F]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-[#26362B]">Prescritor:</span>
+                      <span>{m.expand?.medico?.nome || 'Não especificado'}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {m.data_prescricao && (
+                        <span>
+                          Prescrito em: <strong>{formatDate(m.data_prescricao)}</strong>
+                        </span>
+                      )}
+                      {m.data_inicio && (
+                        <span>
+                          Início: <strong>{formatDate(m.data_inicio)}</strong>
+                        </span>
+                      )}
+                      {m.data_fim && (
+                        <span>
+                          Término: <strong>{formatDate(m.data_fim)}</strong>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {m.observacoes && (
-                    <p className="mt-2 text-xs text-[#26362B] bg-[#F6F4EF] p-2.5 rounded-xl border border-[#D9E2D4]/60 italic">
-                      "{m.observacoes}"
-                    </p>
+
+                  {/* Receita Anexada */}
+                  <div className="mt-3 pt-3 border-t border-[#D9E2D4]/50 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                      <span className="font-medium text-[#26362B]">Receita médica:</span>
+                      <span className="text-[#6B7A6F]">
+                        {m.receita_arquivo ? 'Arquivo anexado' : 'Sem receita anexada'}
+                      </span>
+                    </div>
+                    {receitaUrl && (
+                      <a
+                        href={receitaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#4C7A5A] hover:underline flex items-center gap-1 font-semibold text-xs"
+                      >
+                        <span>Ver receita</span> <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Identificação de campos incompletos sem inventar valores */}
+                  {incompleteList.length > 0 && (
+                    <div className="mt-3 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-2">
+                      <Info className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold block">Dados cadastrais incompletos:</span>
+                        <span>{incompleteList.join(', ')}.</span>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Actions Toolbar */}
-                <div className="mt-6 pt-4 border-t border-[#D9E2D4]/50 flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openEditForm(m)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F6F4EF] hover:bg-[#E7F0E3] text-[#26362B] text-xs font-medium border border-[#D9E2D4] transition cursor-pointer"
-                    >
-                      <Edit2 className="w-3 h-3 text-[#4C7A5A]" />
-                      <span>Alterar</span>
-                    </button>
-
-                    {isAtivo ? (
+                {/* Bottom Actions Toolbar */}
+                <div className="mt-5 pt-4 border-t border-[#D9E2D4]/50 space-y-3">
+                  {/* Status transitions */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase text-[#6B7A6F] mr-1">
+                      Mudar status:
+                    </span>
+                    {!isEmUso && (
                       <button
-                        onClick={() => promptEndMedication(m)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-medium border border-amber-200 transition cursor-pointer"
+                        type="button"
+                        onClick={() => handleStatusChangeRequest(m, 'em uso')}
+                        className="px-2.5 py-1 rounded-full bg-[#DCE9D4] hover:bg-[#A8C3A0] text-[#26362B] text-xs font-semibold transition cursor-pointer"
                       >
-                        <Power className="w-3 h-3 text-amber-700" />
-                        <span>Encerrar</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => promptReactivateMedication(m)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#DCE9D4] hover:bg-[#A8C3A0] text-[#26362B] text-xs font-medium border border-[#A8C3A0] transition cursor-pointer"
-                      >
-                        <RotateCcw className="w-3 h-3 text-[#4C7A5A]" />
-                        <span>Reativar</span>
+                        Em uso
                       </button>
                     )}
+                    {!isPausado && (
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChangeRequest(m, 'pausado')}
+                        className="px-2.5 py-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-semibold transition cursor-pointer"
+                      >
+                        Pausar
+                      </button>
+                    )}
+                    {!isSuspenso && (
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChangeRequest(m, 'suspenso')}
+                        className="px-2.5 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-800 text-xs font-semibold transition cursor-pointer"
+                      >
+                        Suspender
+                      </button>
+                    )}
+                    {!isConcluido && (
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChangeRequest(m, 'concluído')}
+                        className="px-2.5 py-1 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-semibold transition cursor-pointer"
+                      >
+                        Concluir
+                      </button>
+                    )}
+                  </div>
 
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openEditForm(m)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F6F4EF] hover:bg-[#E7F0E3] text-[#26362B] text-xs font-medium border border-[#D9E2D4] transition cursor-pointer"
+                      >
+                        <Edit2 className="w-3 h-3 text-[#4C7A5A]" />
+                        <span>Editar</span>
+                      </button>
+
+                      <button
+                        onClick={() => promptDelete(m)}
+                        title="Excluir medicamento"
+                        className="p-1.5 rounded-full text-red-500 hover:bg-red-50 hover:text-red-700 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Expand History Button */}
                     <button
-                      onClick={() => promptDelete(m)}
-                      title="Excluir medicamento"
-                      className="p-1.5 rounded-full text-red-500 hover:bg-red-50 hover:text-red-700 transition cursor-pointer"
+                      onClick={() => toggleHistory(m.id)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <History className="w-3.5 h-3.5" />
+                      <span>Auditoria e histórico</span>
+                      {isHistoryOpen ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
 
-                  {/* Expand History Button */}
-                  <button
-                    onClick={() => toggleHistory(m.id)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
-                  >
-                    <History className="w-3.5 h-3.5" />
-                    <span>Histórico</span>
-                    {isHistoryOpen ? (
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-
-                {/* Expandable History Section */}
-                {isHistoryOpen && (
-                  <div className="mt-4 pt-4 border-t border-[#D9E2D4] bg-[#F6F4EF]/60 p-3.5 rounded-2xl animate-fade-in">
-                    <h4 className="text-xs font-semibold text-[#26362B] mb-2 flex items-center gap-1.5">
-                      <History className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                      <span>Histórico de alterações e motivos</span>
-                    </h4>
-                    {loadingHistory[m.id] ? (
-                      <p className="text-xs text-[#6B7A6F] italic">Carregando histórico...</p>
-                    ) : historyList.length === 0 ? (
-                      <p className="text-xs text-[#6B7A6F] italic">
-                        Nenhuma alteração registrada ainda para este medicamento.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {historyList.map((h) => (
-                          <div
-                            key={h.id}
-                            className="text-xs bg-white p-2.5 rounded-xl border border-[#D9E2D4] space-y-0.5"
-                          >
-                            <span className="font-semibold text-[#4C7A5A] block">
-                              {formatDate(h.data || h.created)}
-                            </span>
-                            <p className="text-[#26362B] italic">"{h.motivo}"</p>
-                          </div>
-                        ))}
+                  {/* Expandable History Section */}
+                  {isHistoryOpen && (
+                    <div className="mt-3 pt-3 border-t border-[#D9E2D4] bg-[#F6F4EF]/70 p-3.5 rounded-2xl animate-fade-in space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-[#26362B] flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                          <span>Registro imutável de auditoria</span>
+                        </h4>
+                        <span className="text-[10px] text-[#6B7A6F]">
+                          {historyList.length} registro(s)
+                        </span>
                       </div>
-                    )}
-                  </div>
-                )}
+
+                      {loadingHistory[m.id] ? (
+                        <p className="text-xs text-[#6B7A6F] italic">Carregando auditoria...</p>
+                      ) : historyList.length === 0 ? (
+                        <p className="text-xs text-[#6B7A6F] italic">
+                          Nenhuma alteração registrada ainda para este medicamento.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                          {historyList.map((h) => (
+                            <div
+                              key={h.id}
+                              className="text-xs bg-white p-3 rounded-xl border border-[#D9E2D4] space-y-1 shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between text-[11px] text-[#6B7A6F]">
+                                <span className="font-semibold text-[#4C7A5A]">
+                                  {formatDateTime(h.data_hora || h.data || h.created)}
+                                </span>
+                                <span>Por: {h.usuario_responsavel || 'Usuário'}</span>
+                              </div>
+
+                              {h.campo_alterado && (
+                                <p className="text-xs font-semibold text-[#26362B]">
+                                  {h.campo_alterado}
+                                </p>
+                              )}
+
+                              {(h.valor_anterior || h.novo_valor) && (
+                                <div className="text-[11px] text-[#6B7A6F] bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                                  {h.valor_anterior && (
+                                    <p>
+                                      <span className="font-medium text-red-700">Anterior:</span>{' '}
+                                      {h.valor_anterior}
+                                    </p>
+                                  )}
+                                  {h.novo_valor && (
+                                    <p>
+                                      <span className="font-medium text-[#4C7A5A]">Novo:</span>{' '}
+                                      {h.novo_valor}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
+                              <p className="text-xs text-[#26362B] italic pl-2 border-l-2 border-[#4C7A5A]">
+                                Motivo: "{h.motivo}"
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -581,7 +911,7 @@ export default function Medicamentos() {
       {/* Main CRUD Modal Form */}
       {formOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl border border-[#D9E2D4] relative my-8 animate-scale-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl border border-[#D9E2D4] relative my-8 animate-scale-in max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setFormOpen(false)}
               className="absolute top-6 right-6 p-1.5 rounded-full hover:bg-gray-100 text-[#6B7A6F] hover:text-[#26362B] transition"
@@ -598,12 +928,13 @@ export default function Medicamentos() {
                   {editingMed ? 'Editar medicamento' : 'Novo medicamento'}
                 </h2>
                 <p className="text-xs text-[#6B7A6F]">
-                  Preencha os dados do tratamento para manter sua rotina em dia
+                  Preencha os dados do prontuário (apenas o nome é obrigatório)
                 </p>
               </div>
             </div>
 
             <form onSubmit={handleFormSubmit} className="space-y-4">
+              {/* Section 1: Identificação */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
@@ -621,35 +952,54 @@ export default function Medicamentos() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Dosagem <span className="text-red-500">*</span>
+                    Princípio ativo
                   </label>
                   <input
                     type="text"
-                    required
-                    value={dosagem}
-                    onChange={(e) => setDosagem(e.target.value)}
-                    placeholder="Ex.: 50 mg, 1 comprimido, 10 ml"
+                    value={principioAtivo}
+                    onChange={(e) => setPrincipioAtivo(e.target.value)}
+                    placeholder="Ex.: Losartana Potássica, Colecalciferol"
                     className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Section 2: Apresentação, Concentração, Dose */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Forma farmacêutica <span className="text-red-500">*</span>
+                    Apresentação / Forma
                   </label>
                   <select
                     value={forma}
-                    onChange={(e) => setForma(e.target.value as FormaFarmaceutica)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                    onChange={(e) => {
+                      setForma(e.target.value as FormaFarmaceutica)
+                      if (!apresentacao) setApresentacao(e.target.value)
+                    }}
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
                   >
                     {FORMAS.map((f) => (
-                      <option key={f} value={f}>
-                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      <option key={f.value} value={f.value}>
+                        {f.label}
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+                    Concentração
+                  </label>
+                  <input
+                    type="text"
+                    value={concentracao}
+                    onChange={(e) => {
+                      setConcentracao(e.target.value)
+                      if (!dosagem) setDosagem(e.target.value)
+                    }}
+                    placeholder="Ex.: 50 mg, 2.000 UI, 5 mg/ml"
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                  />
                 </div>
 
                 <div>
@@ -661,109 +1011,215 @@ export default function Medicamentos() {
                     value={laboratorio}
                     onChange={(e) => setLaboratorio(e.target.value)}
                     placeholder="Ex.: EMS, Eurofarma, Medley"
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                  Médico prescritor
-                </label>
-                <select
-                  value={medicoId}
-                  onChange={(e) => setMedicoId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                >
-                  <option value="">Nenhum médico selecionado</option>
-                  {medicos.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.nome} — {doc.especialidade}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Section 3: Posologia prescrita */}
+              <div className="p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] space-y-3">
+                <span className="text-xs font-semibold text-[#26362B] uppercase tracking-wider block">
+                  Posologia e Prescrição Médica
+                </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Data de início <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={dataInicio}
-                    onChange={(e) => setDataInicio(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                  />
-                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Dose prescrita
+                    </label>
+                    <input
+                      type="text"
+                      value={dosePrescrita}
+                      onChange={(e) => setDosePrescrita(e.target.value)}
+                      placeholder="Ex.: 1, 2, 10"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Data de término (opcional)
-                  </label>
-                  <input
-                    type="date"
-                    value={dataFim}
-                    onChange={(e) => setDataFim(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                  />
-                </div>
-              </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Unidade da dose
+                    </label>
+                    <input
+                      type="text"
+                      value={unidadeDose}
+                      onChange={(e) => setUnidadeDose(e.target.value)}
+                      placeholder="Ex.: comprimido, gotas, ml"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
 
-              {/* Multiple Schedule Pickers */}
-              <div className="p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4]">
-                <label className="block text-xs font-semibold text-[#26362B] mb-2 uppercase tracking-wider">
-                  Horários de tomada diários <span className="text-red-500">*</span>
-                </label>
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  {horarios.map((h) => (
-                    <span
-                      key={h}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-[#26362B] text-xs font-semibold border border-[#D9E2D4] shadow-xs"
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Via de administração
+                    </label>
+                    <select
+                      value={viaAdministracao}
+                      onChange={(e) => setViaAdministracao(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                     >
-                      <Clock className="w-3 h-3 text-[#4C7A5A]" />
-                      <span>{h}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveHorario(h)}
-                        className="text-red-500 hover:text-red-700 ml-1 cursor-pointer"
-                        title="Remover horário"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
+                      {VIAS_ADMINISTRACAO.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="time"
-                    value={novoHorario}
-                    onChange={(e) => setNovoHorario(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Frequência
+                    </label>
+                    <input
+                      type="text"
+                      value={frequencia}
+                      onChange={(e) => setFrequencia(e.target.value)}
+                      placeholder="Ex.: 12 em 12 horas, 1 vez ao dia, se dor"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Tipo de uso
+                    </label>
+                    <select
+                      value={tipoUso}
+                      onChange={(e) => setTipoUso(e.target.value as TipoUsoMedicamento)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    >
+                      <option value="contínuo">Uso Contínuo</option>
+                      <option value="temporário">Uso Temporário</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Instruções da prescrição
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={instrucoesPrescricao}
+                    onChange={(e) => setInstrucoesPrescricao(e.target.value)}
+                    placeholder="Ex.: Tomar em jejum 30 min antes do café; evitar laticínios..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddHorario}
-                    className="px-4 py-1.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-medium cursor-pointer"
-                  >
-                    + Adicionar horário
-                  </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                  Observações e recomendações
-                </label>
-                <textarea
-                  rows={2}
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="Ex.: Tomar em jejum com água abundante; evitar laticínios 2h antes..."
-                  className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                />
+              {/* Section 4: Médico, Datas, Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+                    Médico prescritor
+                  </label>
+                  <select
+                    value={medicoId}
+                    onChange={(e) => setMedicoId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-xs focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                  >
+                    <option value="">Nenhum médico selecionado</option>
+                    {medicos.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.nome} — {doc.especialidade}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+                    Data da prescrição
+                  </label>
+                  <input
+                    type="date"
+                    value={dataPrescricao}
+                    onChange={(e) => setDataPrescricao(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-xs focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+                    Status inicial / atual
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as StatusMedicamento)}
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-xs focus:ring-2 focus:ring-[#4C7A5A] outline-none capitalize"
+                  >
+                    <option value="em uso">Em uso</option>
+                    <option value="pausado">Pausado</option>
+                    <option value="suspenso">Suspenso</option>
+                    <option value="concluído">Concluído</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Section 5: Horários e Anexo de Receita */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Horários */}
+                <div className="p-3.5 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4]">
+                  <label className="block text-xs font-semibold text-[#26362B] mb-2 uppercase tracking-wider">
+                    Horários de tomada
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                    {horarios.map((h) => (
+                      <span
+                        key={h}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white text-[#26362B] text-xs font-semibold border border-[#D9E2D4]"
+                      >
+                        <Clock className="w-3 h-3 text-[#4C7A5A]" />
+                        <span>{h}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHorario(h)}
+                          className="text-red-500 hover:text-red-700 ml-0.5 cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={novoHorario}
+                      onChange={(e) => setNovoHorario(e.target.value)}
+                      className="px-2.5 py-1.5 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddHorario}
+                      className="px-3 py-1.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-medium cursor-pointer"
+                    >
+                      + Horário
+                    </button>
+                  </div>
+                </div>
+
+                {/* Receita Anexada */}
+                <div className="p-3.5 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4]">
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+                    Anexar receita médica (PDF/Imagem)
+                  </label>
+                  <input
+                    ref={receitaInputRef}
+                    type="file"
+                    accept=".pdf,image/png,image/jpeg,image/webp,.doc,.docx"
+                    onChange={(e) => setReceitaFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-[#6B7A6F] file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#4C7A5A] file:text-white hover:file:bg-[#3F664C] cursor-pointer"
+                  />
+                  {editingMed?.receita_arquivo && !receitaFile && (
+                    <p className="text-[11px] text-[#4C7A5A] mt-1.5 font-medium">
+                      Já possui arquivo anexado. Envie outro para substituir.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-3">
@@ -782,7 +1238,7 @@ export default function Medicamentos() {
                   {saving
                     ? 'Gravando...'
                     : editingMed
-                      ? 'Salvar alterações'
+                      ? 'Revisar e salvar'
                       : 'Cadastrar medicamento'}
                 </button>
               </div>
@@ -791,61 +1247,78 @@ export default function Medicamentos() {
         </div>
       )}
 
-      {/* Reason Modal (Motivo da alteração / encerramento) */}
-      {reasonModalOpen && (
+      {/* Audit Modal (Registro Imutável de Auditoria) */}
+      {auditModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#D9E2D4] space-y-4 animate-scale-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-7 shadow-2xl border border-[#D9E2D4] space-y-4 animate-scale-in">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center">
-                <History className="w-5 h-5" />
+              <div className="w-11 h-11 rounded-2xl bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center">
+                <ShieldCheck className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="font-serif italic text-xl text-[#26362B] font-semibold">
-                  {reasonAction === 'edit'
-                    ? 'Motivo da alteração'
-                    : reasonAction === 'end'
-                      ? 'Motivo do encerramento'
-                      : 'Motivo da reativação'}
+                  Auditoria de Alteração de Medicamento
                 </h3>
                 <p className="text-xs text-[#6B7A6F]">
-                  Ficará gravado no prontuário para consultas futuras
+                  Registro imutável no prontuário com campo alterado, valores e motivo
                 </p>
               </div>
             </div>
 
+            <div className="p-3.5 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] text-xs space-y-1.5">
+              <p>
+                <span className="font-semibold text-[#26362B]">Operação:</span> {auditFieldLabel}
+              </p>
+              {auditOldValue && (
+                <p className="text-gray-600">
+                  <span className="font-semibold text-[#26362B]">Valor anterior:</span>{' '}
+                  {auditOldValue}
+                </p>
+              )}
+              {auditNewValue && (
+                <p className="text-[#4C7A5A]">
+                  <span className="font-semibold text-[#26362B]">Novo valor:</span> {auditNewValue}
+                </p>
+              )}
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-[#26362B] mb-1.5 uppercase tracking-wider">
-                Descreva o motivo <span className="text-red-500">*</span>
+                Motivo da alteração / suspensão{' '}
+                <span className="text-red-500">* (obrigatório)</span>
               </label>
               <textarea
                 rows={3}
                 required
-                value={reasonText}
-                onChange={(e) => setReasonText(e.target.value)}
-                placeholder={
-                  reasonAction === 'edit'
-                    ? 'Ex.: Troca de dose prescrita pelo Dr. Rafael após retorno; redução de frequência.'
-                    : 'Ex.: Tratamento finalizado com sucesso; remissão de sintomas.'
-                }
+                value={auditReason}
+                onChange={(e) => setAuditReason(e.target.value)}
+                placeholder="Ex.: Ajuste de dosagem determinado pela Dra. Ana Beatriz após ecocardiograma; remissão de sintomas; reação adversa..."
                 className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
               />
+              <p className="text-[11px] text-[#6B7A6F] mt-1">
+                Ficará gravado permanentemente na linha do tempo clínica com data, hora e
+                responsável.
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setReasonModalOpen(false)}
+                onClick={() => {
+                  setAuditModalOpen(false)
+                  setPendingAction(null)
+                }}
                 className="px-4 py-2 rounded-full border border-[#D9E2D4] text-xs font-medium text-[#6B7A6F]"
               >
                 Voltar
               </button>
               <button
                 type="button"
-                disabled={saving || !reasonText.trim()}
-                onClick={handleConfirmReason}
+                disabled={saving || !auditReason.trim()}
+                onClick={confirmAuditAction}
                 className="px-5 py-2 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold disabled:opacity-50"
               >
-                {saving ? 'Registrando...' : 'Confirmar e salvar'}
+                {saving ? 'Gravando auditoria...' : 'Confirmar e gravar no prontuário'}
               </button>
             </div>
           </div>
@@ -864,8 +1337,9 @@ export default function Medicamentos() {
                 Excluir medicamento?
               </h3>
               <p className="text-xs text-[#6B7A6F] mt-1">
-                Tem certeza? Esta ação não pode ser desfeita e removerá todo o histórico de{' '}
-                <strong>{medToDelete.nome}</strong>.
+                Atenção: remover <strong>{medToDelete.nome}</strong> apagará as definições do
+                remédio. Para manter o histórico intacto, prefira marcar como{' '}
+                <strong>Suspenso</strong> ou <strong>Concluído</strong>.
               </p>
             </div>
 

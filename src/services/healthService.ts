@@ -6,6 +6,8 @@ import type {
   Consulta,
   Exame,
   Documento,
+  StatusMedicamento,
+  StatusExame,
 } from '@/types/health'
 
 export function getFileUrl(collectionNameOrId: string, recordId: string, filename: string): string {
@@ -55,46 +57,96 @@ function normalizeMedicamento(m: Medicamento): Medicamento {
       horarios = []
     }
   }
-  return { ...m, horarios }
+
+  // Normalizar status legado caso algum registro antigo ainda venha como 'ativo' / 'encerrado'
+  let status: StatusMedicamento = m.status
+  if ((status as any) === 'ativo') status = 'em uso'
+  if ((status as any) === 'encerrado') status = 'concluído'
+
+  return { ...m, horarios, status }
 }
 
 export async function createMedicamento(
-  data: Omit<Medicamento, 'id' | 'created' | 'updated' | 'userId'>,
+  data: FormData | Partial<Medicamento>,
 ): Promise<Medicamento> {
   const userId = pb.authStore.model?.id
-  const payload = {
-    ...data,
-    horarios: Array.isArray(data.horarios) ? data.horarios : [],
-    userId,
+  let created: Medicamento
+
+  if (data instanceof FormData) {
+    if (userId && !data.has('userId')) {
+      data.append('userId', userId)
+    }
+    created = await pb.collection('medicamentos').create<Medicamento>(data, { expand: 'medico' })
+  } else {
+    const payload = {
+      ...data,
+      horarios: Array.isArray(data.horarios) ? data.horarios : [],
+      status: data.status || 'em uso',
+      userId,
+    }
+    created = await pb.collection('medicamentos').create<Medicamento>(payload, { expand: 'medico' })
   }
-  const created = await pb
-    .collection('medicamentos')
-    .create<Medicamento>(payload, { expand: 'medico' })
   return normalizeMedicamento(created)
+}
+
+export interface AuditLogPayload {
+  campo_alterado?: string
+  valor_anterior?: string
+  novo_valor?: string
+  motivo: string
 }
 
 export async function updateMedicamento(
   id: string,
-  data: Partial<Medicamento>,
-  motivoAlteracao?: string,
+  data: FormData | Partial<Medicamento>,
+  auditLog?: AuditLogPayload | string,
 ): Promise<Medicamento> {
-  const payload = { ...data }
-  if (payload.horarios && Array.isArray(payload.horarios)) {
-    // keep array for pb json field
+  let updated: Medicamento
+  if (data instanceof FormData) {
+    updated = await pb
+      .collection('medicamentos')
+      .update<Medicamento>(id, data, { expand: 'medico' })
+  } else {
+    updated = await pb
+      .collection('medicamentos')
+      .update<Medicamento>(id, data, { expand: 'medico' })
   }
-  const updated = await pb
-    .collection('medicamentos')
-    .update<Medicamento>(id, payload, { expand: 'medico' })
 
-  if (motivoAlteracao && motivoAlteracao.trim().length > 0) {
+  // Registrar auditoria imutável detalhada
+  if (auditLog) {
     try {
-      await pb.collection('alteracoes_medicamentos').create({
-        medicamento: id,
-        motivo: motivoAlteracao.trim(),
-        data: new Date().toISOString().split('T')[0],
-      })
+      const userId = pb.authStore.model?.id
+      const userName = pb.authStore.model?.name || pb.authStore.model?.email || 'Usuário'
+      const nowIso = new Date().toISOString()
+      const nowDate = nowIso.split('T')[0]
+
+      if (typeof auditLog === 'string') {
+        if (auditLog.trim().length > 0) {
+          await pb.collection('alteracoes_medicamentos').create({
+            medicamento: id,
+            motivo: auditLog.trim(),
+            campo_alterado: 'Medicamento',
+            usuario_responsavel: userName,
+            data: nowDate,
+            data_hora: nowIso,
+            userId,
+          })
+        }
+      } else if (auditLog.motivo && auditLog.motivo.trim().length > 0) {
+        await pb.collection('alteracoes_medicamentos').create({
+          medicamento: id,
+          motivo: auditLog.motivo.trim(),
+          campo_alterado: auditLog.campo_alterado || 'Posologia / Tratamento',
+          valor_anterior: auditLog.valor_anterior || '',
+          novo_valor: auditLog.novo_valor || '',
+          usuario_responsavel: userName,
+          data: nowDate,
+          data_hora: nowIso,
+          userId,
+        })
+      }
     } catch (e) {
-      console.error('Erro ao salvar alteração de medicamento', e)
+      console.error('Erro ao salvar alteração de medicamento na auditoria', e)
     }
   }
 
@@ -116,21 +168,82 @@ export async function getAlteracoesMedicamento(
 
 // ==================== CONSULTAS ====================
 export async function getConsultas(): Promise<Consulta[]> {
-  return pb.collection('consultas').getFullList<Consulta>({
+  const records = await pb.collection('consultas').getFullList<Consulta>({
     sort: '-data',
     expand: 'medico',
   })
+  return records.map(normalizeConsulta)
 }
 
-export async function createConsulta(
-  data: Omit<Consulta, 'id' | 'created' | 'updated' | 'userId'>,
-): Promise<Consulta> {
+function normalizeConsulta(c: Consulta): Consulta {
+  let anexos: string[] = []
+  if (Array.isArray(c.anexos)) {
+    anexos = c.anexos
+  } else if (typeof c.anexos === 'string' && c.anexos) {
+    try {
+      anexos = JSON.parse(c.anexos)
+    } catch {
+      anexos = [c.anexos]
+    }
+  }
+
+  let medsRel: string[] = []
+  if (Array.isArray(c.medicamentos_relacionados_ids)) {
+    medsRel = c.medicamentos_relacionados_ids
+  } else if (typeof c.medicamentos_relacionados_ids === 'string') {
+    try {
+      medsRel = JSON.parse(c.medicamentos_relacionados_ids)
+    } catch {
+      medsRel = []
+    }
+  }
+
+  let examesRel: string[] = []
+  if (Array.isArray(c.exames_relacionados_ids)) {
+    examesRel = c.exames_relacionados_ids
+  } else if (typeof c.exames_relacionados_ids === 'string') {
+    try {
+      examesRel = JSON.parse(c.exames_relacionados_ids)
+    } catch {
+      examesRel = []
+    }
+  }
+
+  return {
+    ...c,
+    anexos,
+    medicamentos_relacionados_ids: medsRel,
+    exames_relacionados_ids: examesRel,
+  }
+}
+
+export async function createConsulta(data: FormData | Partial<Consulta>): Promise<Consulta> {
   const userId = pb.authStore.model?.id
-  return pb.collection('consultas').create<Consulta>({ ...data, userId }, { expand: 'medico' })
+  let created: Consulta
+  if (data instanceof FormData) {
+    if (userId && !data.has('userId')) {
+      data.append('userId', userId)
+    }
+    created = await pb.collection('consultas').create<Consulta>(data, { expand: 'medico' })
+  } else {
+    created = await pb
+      .collection('consultas')
+      .create<Consulta>({ ...data, userId }, { expand: 'medico' })
+  }
+  return normalizeConsulta(created)
 }
 
-export async function updateConsulta(id: string, data: Partial<Consulta>): Promise<Consulta> {
-  return pb.collection('consultas').update<Consulta>(id, data, { expand: 'medico' })
+export async function updateConsulta(
+  id: string,
+  data: FormData | Partial<Consulta>,
+): Promise<Consulta> {
+  let updated: Consulta
+  if (data instanceof FormData) {
+    updated = await pb.collection('consultas').update<Consulta>(id, data, { expand: 'medico' })
+  } else {
+    updated = await pb.collection('consultas').update<Consulta>(id, data, { expand: 'medico' })
+  }
+  return normalizeConsulta(updated)
 }
 
 export async function deleteConsulta(id: string): Promise<boolean> {
@@ -139,25 +252,74 @@ export async function deleteConsulta(id: string): Promise<boolean> {
 
 // ==================== EXAMES ====================
 export async function getExames(): Promise<Exame[]> {
-  return pb.collection('exames').getFullList<Exame>({
+  const records = await pb.collection('exames').getFullList<Exame>({
     sort: '-data_solicitado',
-    expand: 'medico',
+    expand: 'medico,consulta_relacionada',
   })
+  return records.map(normalizeExame)
 }
 
-export async function createExame(formData: FormData): Promise<Exame> {
-  const userId = pb.authStore.model?.id
-  if (userId && !formData.has('userId')) {
-    formData.append('userId', userId)
+function normalizeExame(e: Exame): Exame {
+  let historico: any[] = []
+  if (Array.isArray(e.historico_status)) {
+    historico = e.historico_status
+  } else if (typeof e.historico_status === 'string') {
+    try {
+      historico = JSON.parse(e.historico_status)
+    } catch {
+      historico = []
+    }
   }
-  return pb.collection('exames').create<Exame>(formData, { expand: 'medico' })
+
+  // Normalizar status legado caso algum registro venha com Solicitado / Em análise / Concluído
+  let status: StatusExame = e.status
+  if ((status as any) === 'Solicitado') status = 'Pendente'
+  if ((status as any) === 'Em análise') status = 'Realizado'
+  if ((status as any) === 'Concluído') status = 'Finalizado'
+
+  let pedidosArquivos: string[] = []
+  if (Array.isArray(e.pedidos_arquivos)) pedidosArquivos = e.pedidos_arquivos
+  else if (e.pedido_arquivo) pedidosArquivos = [e.pedido_arquivo]
+
+  let resultadosArquivos: string[] = []
+  if (Array.isArray(e.resultados_arquivos)) resultadosArquivos = e.resultados_arquivos
+  else if (e.resultado_arquivo) resultadosArquivos = [e.resultado_arquivo]
+
+  return {
+    ...e,
+    status,
+    pedidos_arquivos: pedidosArquivos,
+    resultados_arquivos: resultadosArquivos,
+    historico_status: historico,
+  }
+}
+
+export async function createExame(formDataOrObj: FormData | Partial<Exame>): Promise<Exame> {
+  const userId = pb.authStore.model?.id
+  let created: Exame
+  if (formDataOrObj instanceof FormData) {
+    if (userId && !formDataOrObj.has('userId')) {
+      formDataOrObj.append('userId', userId)
+    }
+    created = await pb.collection('exames').create<Exame>(formDataOrObj, {
+      expand: 'medico,consulta_relacionada',
+    })
+  } else {
+    created = await pb
+      .collection('exames')
+      .create<Exame>({ ...formDataOrObj, userId }, { expand: 'medico,consulta_relacionada' })
+  }
+  return normalizeExame(created)
 }
 
 export async function updateExame(
   id: string,
   formDataOrObj: FormData | Partial<Exame>,
 ): Promise<Exame> {
-  return pb.collection('exames').update<Exame>(id, formDataOrObj as any, { expand: 'medico' })
+  const updated = await pb.collection('exames').update<Exame>(id, formDataOrObj as any, {
+    expand: 'medico,consulta_relacionada',
+  })
+  return normalizeExame(updated)
 }
 
 export async function deleteExame(id: string): Promise<boolean> {

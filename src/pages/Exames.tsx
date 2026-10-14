@@ -5,52 +5,91 @@ import {
   updateExame,
   deleteExame,
   getMedicos,
+  getConsultas,
   getFileUrl,
 } from '@/services/healthService'
-import type { Exame, Medico, StatusExame, TipoExame } from '@/types/health'
+import type {
+  Exame,
+  Medico,
+  Consulta,
+  TipoExame,
+  StatusExame,
+  HistoricoStatusExame,
+} from '@/types/health'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
-  FileSearch,
+  TestTube,
   Plus,
+  Search,
+  Filter,
   Calendar,
-  Upload,
-  ExternalLink,
+  Clock,
+  MapPin,
   FileText,
   Edit2,
   Trash2,
-  AlertCircle,
-  X,
-  Loader2,
   Paperclip,
   CheckCircle2,
-  Clock,
+  AlertCircle,
+  ExternalLink,
+  X,
+  Loader2,
+  CalendarClock,
+  Sparkles,
+  Info,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
-const TIPOS_EXAME: TipoExame[] = [
+const TIPOS: TipoExame[] = [
   'Sangue',
   'Imagem',
   'Urina',
   'Fezes',
   'Cardíaco',
   'Preventivo',
+  'Endoscopia/Biópsia',
+  'Genético',
   'Outro',
 ]
-const STATUS_EXAME: StatusExame[] = ['Solicitado', 'Em análise', 'Concluído']
+
+const STATUS_LIST: StatusExame[] = ['Pendente', 'Agendado', 'Realizado', 'Finalizado', 'Cancelado']
+
+const CATEGORIAS_SUGERIDAS = [
+  'Laboratorial (Sangue/Urina)',
+  'Diagnóstico por Imagem',
+  'Cardiológico',
+  'Endoscópico / Digestivo',
+  'Ginecológico / Urológico',
+  'Oftalmológico',
+  'Genético / Molecular',
+  'Check-up Preventivo',
+  'Outro',
+]
 
 export default function Exames() {
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [exames, setExames] = useState<Exame[]>([])
   const [medicos, setMedicos] = useState<Medico[]>([])
+  const [consultas, setConsultas] = useState<Consulta[]>([])
   const [loading, setLoading] = useState(true)
 
   useRealtime('exames', () => triggerRefresh())
 
-  // Filter
-  const [activeTab, setActiveTab] = useState<'Todos' | StatusExame>('Todos')
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<StatusExame | 'Todos'>('Todos')
+  const [categoriaFilter, setCategoriaFilter] = useState('Todas')
+  const [medicoFilter, setMedicoFilter] = useState('Todos')
+  const [localFilter, setLocalFilter] = useState('Todos')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  // Main CRUD Modal
+  // Expand History of status per exam
+  const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({})
+
+  // Form Modal
   const [formOpen, setFormOpen] = useState(false)
   const [editingExame, setEditingExame] = useState<Exame | null>(null)
   const [saving, setSaving] = useState(false)
@@ -58,35 +97,42 @@ export default function Exames() {
   // Fields
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState<TipoExame>('Sangue')
+  const [categoria, setCategoria] = useState('')
   const [medicoId, setMedicoId] = useState('')
+  const [consultaRelacionadaId, setConsultaRelacionadaId] = useState('')
   const [dataSolicitado, setDataSolicitado] = useState('')
+  const [dataValidade, setDataValidade] = useState('')
+  const [localRealizacao, setLocalRealizacao] = useState('')
+  const [dataHoraAgendada, setDataHoraAgendada] = useState('')
+  const [instrucoesPreparo, setInstrucoesPreparo] = useState('')
   const [dataRealizado, setDataRealizado] = useState('')
-  const [status, setStatus] = useState<StatusExame>('Solicitado')
+  const [dataDisponibilizacaoResultado, setDataDisponibilizacaoResultado] = useState('')
+  const [status, setStatus] = useState<StatusExame>('Pendente')
   const [observacoes, setObservacoes] = useState('')
 
   // Files
-  const [pedidoFile, setPedidoFile] = useState<File | null>(null)
-  const [resultadoFile, setResultadoFile] = useState<File | null>(null)
+  const [pedidosFiles, setPedidosFiles] = useState<File[]>([])
+  const [resultadosFiles, setResultadosFiles] = useState<File[]>([])
 
-  // Quick "Anexar resultado" Modal
-  const [quickResultModalOpen, setQuickResultModalOpen] = useState(false)
-  const [targetExameForQuickResult, setTargetExameForQuickResult] = useState<Exame | null>(null)
-  const [quickResultFile, setQuickResultFile] = useState<File | null>(null)
-  const [quickRealizadoDate, setQuickRealizadoDate] = useState('')
-  const [uploadingQuick, setUploadingQuick] = useState(false)
+  // Status Change / Reagendar Modal
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [selectedExameForStatus, setSelectedExameForStatus] = useState<Exame | null>(null)
+  const [targetStatus, setTargetStatus] = useState<StatusExame>('Agendado')
+  const [statusObservation, setStatusObservation] = useState('')
+  const [newAgendamentoDataHora, setNewAgendamentoDataHora] = useState('')
+  const [newLocal, setNewLocal] = useState('')
+  const [newResultFile, setNewResultFile] = useState<File | null>(null)
 
   // Delete Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [exameToDelete, setExameToDelete] = useState<Exame | null>(null)
 
-  const pedidoInputRef = useRef<HTMLInputElement>(null)
-  const resultadoInputRef = useRef<HTMLInputElement>(null)
-
   const loadData = useCallback(async () => {
     try {
-      const [exs, docs] = await Promise.all([getExames(), getMedicos()])
+      const [exs, docs, cons] = await Promise.all([getExames(), getMedicos(), getConsultas()])
       setExames(exs)
       setMedicos(docs)
+      setConsultas(cons)
     } catch (err) {
       console.error(err)
       toast({
@@ -107,27 +153,44 @@ export default function Exames() {
     setEditingExame(null)
     setNome('')
     setTipo('Sangue')
+    setCategoria('Laboratorial (Sangue/Urina)')
     setMedicoId(medicos[0]?.id || '')
-    setDataSolicitado(new Date().toISOString().split('T')[0])
+    setConsultaRelacionadaId('')
+    const today = new Date().toISOString().split('T')[0]
+    setDataSolicitado(today)
+    setDataValidade('')
+    setLocalRealizacao('')
+    setDataHoraAgendada('')
+    setInstrucoesPreparo('')
     setDataRealizado('')
-    setStatus('Solicitado')
+    setDataDisponibilizacaoResultado('')
+    setStatus('Pendente')
     setObservacoes('')
-    setPedidoFile(null)
-    setResultadoFile(null)
+    setPedidosFiles([])
+    setResultadosFiles([])
     setFormOpen(true)
   }
 
-  const openEditForm = (e: Exame) => {
-    setEditingExame(e)
-    setNome(e.nome)
-    setTipo(e.tipo)
-    setMedicoId(e.medico)
-    setDataSolicitado(e.data_solicitado ? e.data_solicitado.split('T')[0] : '')
-    setDataRealizado(e.data_realizado ? e.data_realizado.split('T')[0] : '')
-    setStatus(e.status)
-    setObservacoes(e.observacoes || '')
-    setPedidoFile(null)
-    setResultadoFile(null)
+  const openEditForm = (ex: Exame) => {
+    setEditingExame(ex)
+    setNome(ex.nome)
+    setTipo(ex.tipo)
+    setCategoria(ex.categoria || '')
+    setMedicoId(ex.medico || '')
+    setConsultaRelacionadaId(ex.consulta_relacionada || '')
+    setDataSolicitado(ex.data_solicitado ? ex.data_solicitado.split('T')[0] : '')
+    setDataValidade(ex.data_validade ? ex.data_validade.split('T')[0] : '')
+    setLocalRealizacao(ex.local_realizacao || '')
+    setDataHoraAgendada(ex.data_hora_agendada || '')
+    setInstrucoesPreparo(ex.instrucoes_preparo || '')
+    setDataRealizado(ex.data_realizado ? ex.data_realizado.split('T')[0] : '')
+    setDataDisponibilizacaoResultado(
+      ex.data_disponibilizacao_resultado ? ex.data_disponibilizacao_resultado.split('T')[0] : '',
+    )
+    setStatus(ex.status)
+    setObservacoes(ex.observacoes || '')
+    setPedidosFiles([])
+    setResultadosFiles([])
     setFormOpen(true)
   }
 
@@ -136,7 +199,19 @@ export default function Exames() {
     if (!nome.trim() || !medicoId || !dataSolicitado) {
       toast({
         title: 'Campos obrigatórios',
-        description: 'Nome do exame, médico solicitante e data são necessários.',
+        description: 'Nome do exame, médico e data de solicitação são necessários.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Regra: NÃO marcar como Finalizado sem resultado anexado
+    const existingResults = editingExame?.resultados_arquivos || []
+    if (status === 'Finalizado' && existingResults.length === 0 && resultadosFiles.length === 0) {
+      toast({
+        title: 'Resultado obrigatório para finalizar',
+        description:
+          'Um exame só pode ser Finalizado quando o laudo/resultado for recebido e anexado. Se aguarda laudo, marque como "Realizado".',
         variant: 'destructive',
       })
       return
@@ -147,35 +222,66 @@ export default function Exames() {
       const formData = new FormData()
       formData.append('nome', nome.trim())
       formData.append('tipo', tipo)
+      if (categoria.trim()) formData.append('categoria', categoria.trim())
       formData.append('medico', medicoId)
+      if (consultaRelacionadaId) formData.append('consulta_relacionada', consultaRelacionadaId)
       formData.append('data_solicitado', dataSolicitado)
+      if (dataValidade) formData.append('data_validade', dataValidade)
+      if (localRealizacao.trim()) formData.append('local_realizacao', localRealizacao.trim())
+      if (dataHoraAgendada.trim()) formData.append('data_hora_agendada', dataHoraAgendada.trim())
+      if (instrucoesPreparo.trim()) formData.append('instrucoes_preparo', instrucoesPreparo.trim())
       if (dataRealizado) formData.append('data_realizado', dataRealizado)
+      if (dataDisponibilizacaoResultado) {
+        formData.append('data_disponibilizacao_resultado', dataDisponibilizacaoResultado)
+      }
       formData.append('status', status)
       if (observacoes.trim()) formData.append('observacoes', observacoes.trim())
 
-      if (pedidoFile) formData.append('pedido_arquivo', pedidoFile)
-      if (resultadoFile) formData.append('resultado_arquivo', resultadoFile)
+      // Append multi files
+      pedidosFiles.forEach((file) => formData.append('pedidos_arquivos', file))
+      resultadosFiles.forEach((file) => formData.append('resultados_arquivos', file))
 
       if (editingExame) {
+        // Atualiza histórico se mudou de status
+        let historico: HistoricoStatusExame[] = Array.isArray(editingExame.historico_status)
+          ? [...editingExame.historico_status]
+          : []
+        if (editingExame.status !== status) {
+          historico.push({
+            status,
+            data: new Date().toISOString(),
+            observacao: 'Atualização cadastral do exame',
+          })
+          formData.append('historico_status', JSON.stringify(historico))
+        }
+
         await updateExame(editingExame.id, formData)
         toast({
           title: 'Exame atualizado!',
-          description: 'Dados e arquivos salvos com sucesso.',
+          description: 'Todas as informações e arquivos foram salvos.',
         })
       } else {
+        const historicoInicial: HistoricoStatusExame[] = [
+          {
+            status,
+            data: new Date().toISOString(),
+            observacao: 'Exame cadastrado no prontuário',
+          },
+        ]
+        formData.append('historico_status', JSON.stringify(historicoInicial))
+
         await createExame(formData)
         toast({
-          title: 'Exame cadastrado!',
-          description: `${nome} adicionado ao seu prontuário.`,
+          title: 'Exame registrado!',
+          description: `${nome} foi adicionado com sucesso.`,
         })
       }
-
       setFormOpen(false)
       triggerRefresh()
     } catch (err: any) {
       toast({
         title: 'Erro ao salvar',
-        description: err?.message || 'Verifique os dados ou o tamanho do arquivo (máx. 10MB).',
+        description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {
@@ -183,56 +289,87 @@ export default function Exames() {
     }
   }
 
-  // Quick Upload
-  const openQuickResultModal = (e: Exame) => {
-    setTargetExameForQuickResult(e)
-    setQuickResultFile(null)
-    setQuickRealizadoDate(
-      e.data_realizado ? e.data_realizado.split('T')[0] : new Date().toISOString().split('T')[0],
-    )
-    setQuickResultModalOpen(true)
+  // Quick Action Modal: Alterar status / Reagendar / Anexar Resultado
+  const openStatusModal = (ex: Exame, nextSt?: StatusExame) => {
+    setSelectedExameForStatus(ex)
+    setTargetStatus(nextSt || ex.status)
+    setStatusObservation('')
+    setNewAgendamentoDataHora(ex.data_hora_agendada || '')
+    setNewLocal(ex.local_realizacao || '')
+    setNewResultFile(null)
+    setStatusModalOpen(true)
   }
 
-  const handleQuickResultSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!targetExameForQuickResult || !quickResultFile) {
+  const handleConfirmStatusChange = async () => {
+    if (!selectedExameForStatus) return
+
+    // Validação estrita: Não marcar como Finalizado sem resultado anexado
+    const hasExistingResult = (selectedExameForStatus.resultados_arquivos || []).length > 0
+    if (targetStatus === 'Finalizado' && !hasExistingResult && !newResultFile) {
       toast({
-        title: 'Arquivo obrigatório',
-        description: 'Selecione o arquivo com o laudo ou resultado.',
+        title: 'Resultado obrigatório',
+        description:
+          'Para finalizar o exame, anexe o laudo/resultado recebido. Apenas realizar o exame sem laudo corresponde ao estado "Realizado".',
         variant: 'destructive',
       })
       return
     }
 
-    setUploadingQuick(true)
+    setSaving(true)
     try {
       const formData = new FormData()
-      formData.append('resultado_arquivo', quickResultFile)
-      if (quickRealizadoDate) {
-        formData.append('data_realizado', quickRealizadoDate)
-      }
-      formData.append('status', 'Concluído')
+      formData.append('status', targetStatus)
 
-      await updateExame(targetExameForQuickResult.id, formData)
-      toast({
-        title: 'Resultado anexado!',
-        description: `O laudo de ${targetExameForQuickResult.nome} foi salvo e o exame marcado como Concluído.`,
+      if (newAgendamentoDataHora.trim()) {
+        formData.append('data_hora_agendada', newAgendamentoDataHora.trim())
+      }
+      if (newLocal.trim()) {
+        formData.append('local_realizacao', newLocal.trim())
+      }
+
+      if (targetStatus === 'Realizado' && !selectedExameForStatus.data_realizado) {
+        formData.append('data_realizado', new Date().toISOString().split('T')[0])
+      }
+
+      if (newResultFile) {
+        formData.append('resultados_arquivos', newResultFile)
+      }
+
+      // Preserva histórico
+      const currentHist: HistoricoStatusExame[] = Array.isArray(
+        selectedExameForStatus.historico_status,
+      )
+        ? [...selectedExameForStatus.historico_status]
+        : []
+
+      currentHist.push({
+        status: targetStatus,
+        data: new Date().toISOString(),
+        observacao: statusObservation.trim() || `Transição para ${targetStatus}`,
       })
-      setQuickResultModalOpen(false)
+
+      formData.append('historico_status', JSON.stringify(currentHist))
+
+      await updateExame(selectedExameForStatus.id, formData)
+      toast({
+        title: 'Status atualizado!',
+        description: `${selectedExameForStatus.nome} agora está ${targetStatus}.`,
+      })
+      setStatusModalOpen(false)
       triggerRefresh()
     } catch (err: any) {
       toast({
-        title: 'Erro no upload',
+        title: 'Erro ao atualizar status',
         description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {
-      setUploadingQuick(false)
+      setSaving(false)
     }
   }
 
-  const promptDelete = (e: Exame) => {
-    setExameToDelete(e)
+  const promptDelete = (ex: Exame) => {
+    setExameToDelete(ex)
     setDeleteModalOpen(true)
   }
 
@@ -243,7 +380,7 @@ export default function Exames() {
       await deleteExame(exameToDelete.id)
       toast({
         title: 'Exame excluído',
-        description: 'Registro e arquivos removidos com sucesso.',
+        description: 'Exame removido com sucesso.',
       })
       setDeleteModalOpen(false)
       triggerRefresh()
@@ -258,6 +395,10 @@ export default function Exames() {
     }
   }
 
+  const toggleHistory = (id: string) => {
+    setExpandedHistory((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
   const formatDate = (iso?: string) => {
     if (!iso) return ''
     const clean = iso.split('T')[0]
@@ -265,8 +406,58 @@ export default function Exames() {
     return `${d}/${m}/${y}`
   }
 
-  const filteredExames =
-    activeTab === 'Todos' ? exames : exames.filter((e) => e.status === activeTab)
+  const formatDateTime = (iso?: string) => {
+    if (!iso) return ''
+    try {
+      const d = new Date(iso)
+      return d.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    } catch {
+      return formatDate(iso)
+    }
+  }
+
+  // Obter listas únicas para os filtros
+  const categoriasUnicas = Array.from(
+    new Set(exames.map((e) => e.categoria).filter(Boolean)),
+  ) as string[]
+  const locaisUnicos = Array.from(
+    new Set(exames.map((e) => e.local_realizacao).filter(Boolean)),
+  ) as string[]
+  const medicosUnicos = Array.from(
+    new Set(exames.map((e) => e.expand?.medico?.nome).filter(Boolean)),
+  ) as string[]
+
+  // Filtros aplicados
+  const filteredExames = exames.filter((ex) => {
+    const matchesStatus = statusFilter === 'Todos' || ex.status === statusFilter
+    const matchesCat = categoriaFilter === 'Todas' || ex.categoria === categoriaFilter
+    const matchesMed = medicoFilter === 'Todos' || ex.expand?.medico?.nome === medicoFilter
+    const matchesLoc = localFilter === 'Todos' || ex.local_realizacao === localFilter
+
+    const q = searchQuery.toLowerCase().trim()
+    if (!q) return matchesStatus && matchesCat && matchesMed && matchesLoc
+
+    const matchNome = ex.nome?.toLowerCase().includes(q)
+    const matchTipo = ex.tipo?.toLowerCase().includes(q)
+    const matchCat = ex.categoria?.toLowerCase().includes(q)
+    const matchDoc = ex.expand?.medico?.nome?.toLowerCase().includes(q)
+    const matchLocal = ex.local_realizacao?.toLowerCase().includes(q)
+    const matchPrep = ex.instrucoes_preparo?.toLowerCase().includes(q)
+
+    return (
+      matchesStatus &&
+      matchesCat &&
+      matchesMed &&
+      matchesLoc &&
+      (matchNome || matchTipo || matchCat || matchDoc || matchLocal || matchPrep)
+    )
+  })
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -277,7 +468,8 @@ export default function Exames() {
             Exames
           </h1>
           <p className="text-[#6B7A6F] text-sm mt-1">
-            Acompanhe pedidos médicos, anexe resultados em PDF/imagens e consulte históricos
+            Gestão com 5 estados (Pendente, Agendado, Realizado, Finalizado e Cancelado), múltiplos
+            arquivos e preparo
           </p>
         </div>
 
@@ -290,45 +482,123 @@ export default function Exames() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#D9E2D4] pb-2 overflow-x-auto">
-        {(['Todos', 'Solicitado', 'Em análise', 'Concluído'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-full text-xs font-semibold transition cursor-pointer shrink-0 ${
-              activeTab === tab
-                ? 'bg-[#5B9A8B] text-white shadow-xs'
-                : 'bg-white text-[#6B7A6F] hover:bg-[#E7F0E3] hover:text-[#26362B] border border-[#D9E2D4]'
-            }`}
-          >
-            {tab}
-            {tab !== 'Todos' && (
-              <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-black/10 text-[10px]">
-                {exames.filter((e) => e.status === tab).length}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Filter and Search Bar */}
+      <div className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm space-y-4">
+        {/* Status Chips */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-semibold text-[#26362B] uppercase tracking-wider mr-2">
+            Status:
+          </span>
+          {(['Todos', ...STATUS_LIST] as const).map((st) => (
+            <button
+              key={st}
+              onClick={() => setStatusFilter(st as any)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                statusFilter === st
+                  ? 'bg-[#4C7A5A] text-white shadow-xs'
+                  : 'bg-[#F6F4EF] text-[#6B7A6F] hover:bg-[#E7F0E3] hover:text-[#26362B]'
+              }`}
+            >
+              {st}
+              {st !== 'Todos' && (
+                <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-black/10 text-[10px]">
+                  {exames.filter((e) => e.status === st).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Secondary filters row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-[#D9E2D4]/50">
+          {/* Categoria */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[#6B7A6F] mb-1">Categoria</label>
+            <select
+              value={categoriaFilter}
+              onChange={(e) => setCategoriaFilter(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs text-[#26362B]"
+            >
+              <option value="Todas">Todas as categorias</option>
+              {categoriasUnicas.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Médico */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[#6B7A6F] mb-1">Médico</label>
+            <select
+              value={medicoFilter}
+              onChange={(e) => setMedicoFilter(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs text-[#26362B]"
+            >
+              <option value="Todos">Todos os médicos</option>
+              {medicosUnicos.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Local */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[#6B7A6F] mb-1">Local</label>
+            <select
+              value={localFilter}
+              onChange={(e) => setLocalFilter(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs text-[#26362B]"
+            >
+              <option value="Todos">Todos os locais</option>
+              {locaisUnicos.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[#6B7A6F] mb-1">
+              Busca textual
+            </label>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-[#6B7A6F] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Exame, preparo..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs text-[#26362B]"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* List */}
+      {/* Exames List */}
       {loading ? (
         <div className="text-center py-16 space-y-3">
-          <Loader2 className="w-8 h-8 text-[#5B9A8B] animate-spin mx-auto" />
-          <p className="text-sm font-serif italic text-[#26362B]">Carregando seus exames...</p>
+          <Loader2 className="w-8 h-8 text-[#4C7A5A] animate-spin mx-auto" />
+          <p className="text-sm font-serif italic text-[#26362B]">Carregando exames...</p>
         </div>
       ) : filteredExames.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 border border-[#D9E2D4] text-center max-w-lg mx-auto">
-          <div className="w-16 h-16 rounded-full bg-[#5B9A8B]/15 text-[#5B9A8B] flex items-center justify-center mx-auto mb-4">
-            <FileSearch className="w-8 h-8" />
+          <div className="w-16 h-16 rounded-full bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center mx-auto mb-4">
+            <TestTube className="w-8 h-8" />
           </div>
           <h3 className="font-serif italic text-xl text-[#26362B] font-medium">
-            Nenhum exame nesta categoria
+            Nenhum exame encontrado
           </h3>
-          <p className="text-xs text-[#6B7A6F] mt-2 leading-relaxed">
-            Cadastre os pedidos passados pelo seu médico para controlar datas e anexar os laudos
-            assim que ficarem prontos.
+          <p className="text-xs text-[#6B7A6F] mt-2">
+            {searchQuery || statusFilter !== 'Todos' || categoriaFilter !== 'Todas'
+              ? 'Tente relaxar os filtros aplicados.'
+              : 'Cadastre os pedidos de exames médicos e acompanhe os preparos e laudos.'}
           </p>
           <button
             onClick={openNewForm}
@@ -339,145 +609,165 @@ export default function Exames() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredExames.map((e) => {
-            const pedidoUrl = getFileUrl('exames', e.id, e.pedido_arquivo || '')
-            const resultadoUrl = getFileUrl('exames', e.id, e.resultado_arquivo || '')
+        <div className="space-y-4">
+          {filteredExames.map((ex) => {
+            const isHistoryOpen = !!expandedHistory[ex.id]
+            const historyList: HistoricoStatusExame[] = Array.isArray(ex.historico_status)
+              ? ex.historico_status
+              : []
+
+            const pedidos: string[] = Array.isArray(ex.pedidos_arquivos) ? ex.pedidos_arquivos : []
+            const resultados: string[] = Array.isArray(ex.resultados_arquivos)
+              ? ex.resultados_arquivos
+              : []
+
+            const isPendente = ex.status === 'Pendente'
+            const isAgendado = ex.status === 'Agendado'
+            const isRealizado = ex.status === 'Realizado'
+            const isFinalizado = ex.status === 'Finalizado'
+            const isCancelado = ex.status === 'Cancelado'
 
             return (
               <div
-                key={e.id}
-                className="bg-white rounded-3xl p-6 border border-[#D9E2D4] shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
+                key={ex.id}
+                className={`bg-white rounded-3xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md ${
+                  isFinalizado
+                    ? 'border-[#D9E2D4]'
+                    : isRealizado
+                      ? 'border-teal-300 bg-teal-50/20'
+                      : isAgendado
+                        ? 'border-blue-300 bg-blue-50/20'
+                        : isPendente
+                          ? 'border-amber-300 bg-amber-50/20'
+                          : 'border-gray-200 opacity-80'
+                }`}
               >
-                <div>
-                  {/* Top: Name & Status */}
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div>
-                      <h3 className="font-serif italic text-xl text-[#26362B] font-semibold leading-tight">
-                        {e.nome}
-                      </h3>
-                      <p className="text-xs font-semibold text-[#5B9A8B] uppercase tracking-wider mt-0.5">
-                        {e.tipo} • Solicitante: {e.expand?.medico?.nome || 'Médico'}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`text-xs font-semibold px-3 py-1 rounded-full shrink-0 ${
-                        e.status === 'Concluído'
-                          ? 'bg-[#DCE9D4] text-[#26362B]'
-                          : e.status === 'Em análise'
-                            ? 'bg-teal-100 text-[#5B9A8B]'
-                            : 'bg-orange-100 text-orange-900 animate-pulse'
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  {/* Left info */}
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                        isFinalizado
+                          ? 'bg-[#E7F0E3] text-[#4C7A5A] border-[#DCE9D4]'
+                          : isRealizado
+                            ? 'bg-teal-100 text-teal-800 border-teal-200'
+                            : isAgendado
+                              ? 'bg-blue-100 text-blue-800 border-blue-200'
+                              : isPendente
+                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                : 'bg-gray-100 text-gray-700 border-gray-200'
                       }`}
                     >
-                      {e.status}
-                    </span>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="flex flex-wrap gap-4 text-xs text-[#6B7A6F] mt-3 pt-3 border-t border-[#D9E2D4]/50">
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-[#5B9A8B]" />
-                      Solicitado: <strong>{formatDate(e.data_solicitado)}</strong>
-                    </span>
-                    {e.data_realizado && (
-                      <span className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                        Realizado: <strong>{formatDate(e.data_realizado)}</strong>
-                      </span>
-                    )}
-                  </div>
-
-                  {e.observacoes && (
-                    <p className="mt-3 text-xs text-[#26362B] bg-[#F6F4EF] p-2.5 rounded-xl border border-[#D9E2D4]/50 italic">
-                      "{e.observacoes}"
-                    </p>
-                  )}
-
-                  {/* Files indicators */}
-                  <div className="mt-4 pt-3 border-t border-[#D9E2D4]/50 space-y-2">
-                    {/* Pedido */}
-                    <div className="flex items-center justify-between text-xs p-2 rounded-xl bg-[#F6F4EF]/70 border border-[#D9E2D4]/50">
-                      <div className="flex items-center gap-2">
-                        <Paperclip className="w-3.5 h-3.5 text-[#5B9A8B]" />
-                        <span className="font-medium text-[#26362B]">Pedido médico:</span>
-                        <span className="text-[#6B7A6F] truncate max-w-[150px]">
-                          {e.pedido_arquivo ? 'Arquivo anexado' : 'Sem anexo'}
-                        </span>
-                      </div>
-                      {pedidoUrl ? (
-                        <a
-                          href={pedidoUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#4C7A5A] hover:underline flex items-center gap-1 font-semibold"
-                        >
-                          <span>Ver</span> <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-gray-400">—</span>
-                      )}
+                      <TestTube className="w-6 h-6" />
                     </div>
 
-                    {/* Resultado */}
-                    <div className="flex items-center justify-between text-xs p-2 rounded-xl bg-[#F6F4EF]/70 border border-[#D9E2D4]/50">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                        <span className="font-medium text-[#26362B]">Resultado / Laudo:</span>
-                        <span className="text-[#6B7A6F] truncate max-w-[150px]">
-                          {e.resultado_arquivo ? 'Arquivo anexado' : 'Pendente'}
+                    <div>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 className="font-serif italic text-xl text-[#26362B] font-semibold">
+                          {ex.nome}
+                        </h3>
+
+                        {/* Status Badge */}
+                        <span
+                          className={`text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider text-[11px] ${
+                            isFinalizado
+                              ? 'bg-[#DCE9D4] text-[#26362B] ring-1 ring-[#A8C3A0]'
+                              : isRealizado
+                                ? 'bg-teal-100 text-teal-900 ring-1 ring-teal-300'
+                                : isAgendado
+                                  ? 'bg-blue-100 text-blue-900 ring-1 ring-blue-300'
+                                  : isPendente
+                                    ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300'
+                                    : 'bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          {ex.status}
                         </span>
+
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-[#F6F4EF] text-[#6B7A6F] border border-[#D9E2D4]">
+                          {ex.tipo}
+                        </span>
+
+                        {ex.categoria && (
+                          <span className="text-[11px] font-semibold text-[#4C7A5A] bg-[#E7F0E3] px-2.5 py-0.5 rounded-full">
+                            {ex.categoria}
+                          </span>
+                        )}
                       </div>
-                      {resultadoUrl ? (
-                        <a
-                          href={resultadoUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#4C7A5A] hover:underline flex items-center gap-1 font-semibold"
-                        >
-                          <span>Abrir laudo</span> <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => openQuickResultModal(e)}
-                          className="text-[#5B9A8B] hover:text-[#3F664C] hover:underline font-semibold text-[11px] flex items-center gap-1 cursor-pointer"
-                        >
-                          <Upload className="w-3 h-3" />
-                          <span>Anexar agora</span>
-                        </button>
+
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-[#6B7A6F] mt-2.5">
+                        <span>
+                          Solicitado por: <strong>{ex.expand?.medico?.nome || 'Médico'}</strong>
+                        </span>
+                        <span>
+                          Em: <strong>{formatDate(ex.data_solicitado)}</strong>
+                        </span>
+                        {ex.data_validade && (
+                          <span className="text-amber-800 font-medium">
+                            Validade do pedido: {formatDate(ex.data_validade)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Agendamento e Local */}
+                      {(ex.data_hora_agendada || ex.local_realizacao) && (
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-[#26362B] mt-2 bg-[#F6F4EF]/70 p-2.5 rounded-xl border border-[#D9E2D4]/60">
+                          {ex.data_hora_agendada && (
+                            <span className="flex items-center gap-1.5 font-semibold text-[#4C7A5A]">
+                              <CalendarClock className="w-3.5 h-3.5" />
+                              Agendado: {ex.data_hora_agendada}
+                            </span>
+                          )}
+                          {ex.local_realizacao && (
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                              Local: <strong>{ex.local_realizacao}</strong>
+                            </span>
+                          )}
+                        </div>
                       )}
+
+                      {/* Preparo */}
+                      {ex.instrucoes_preparo && (
+                        <div className="mt-2 text-xs bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/60 text-amber-950 flex items-start gap-2">
+                          <Info className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-semibold block text-[11px]">
+                              Instruções de preparo:
+                            </span>
+                            <p className="italic">"{ex.instrucoes_preparo}"</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Datas de Realização e Resultado */}
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-[#6B7A6F] mt-2">
+                        {ex.data_realizado && (
+                          <span>
+                            Realizado em: <strong>{formatDate(ex.data_realizado)}</strong>
+                          </span>
+                        )}
+                        {ex.data_disponibilizacao_resultado && (
+                          <span className="text-[#4C7A5A] font-medium">
+                            Resultado previsto/disponibilizado:{' '}
+                            <strong>{formatDate(ex.data_disponibilizacao_resultado)}</strong>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Bottom Buttons */}
-                <div className="mt-6 pt-4 border-t border-[#D9E2D4]/50 flex items-center justify-between gap-2">
-                  {!e.resultado_arquivo ? (
+                  {/* Right actions */}
+                  <div className="flex items-center gap-2 self-end md:self-start">
                     <button
-                      onClick={() => openQuickResultModal(e)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#E7F0E3] hover:bg-[#DCE9D4] text-[#26362B] text-xs font-semibold border border-[#DCE9D4] transition cursor-pointer"
-                    >
-                      <Upload className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                      <span>Anexar resultado</span>
-                    </button>
-                  ) : (
-                    <span className="text-[11px] text-[#4C7A5A] font-medium flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Resultado disponível
-                    </span>
-                  )}
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEditForm(e)}
+                      onClick={() => openEditForm(ex)}
                       className="p-2 rounded-full hover:bg-[#E7F0E3] text-[#4C7A5A] transition cursor-pointer"
                       title="Editar exame"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => promptDelete(e)}
+                      onClick={() => promptDelete(ex)}
                       className="p-2 rounded-full hover:bg-red-50 text-red-500 hover:text-red-700 transition cursor-pointer"
                       title="Excluir exame"
                     >
@@ -485,6 +775,151 @@ export default function Exames() {
                     </button>
                   </div>
                 </div>
+
+                {/* Arquivos anexados (Pedidos e Resultados) */}
+                {(pedidos.length > 0 || resultados.length > 0) && (
+                  <div className="mt-4 pt-3 border-t border-[#D9E2D4]/60 flex flex-wrap items-center gap-3 text-xs">
+                    {pedidos.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <Paperclip className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                        <span className="font-semibold text-[#26362B]">Pedidos médicos:</span>
+                        {pedidos.map((f, i) => (
+                          <a
+                            key={i}
+                            href={getFileUrl('exames', ex.id, f)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#4C7A5A] font-semibold hover:underline flex items-center gap-0.5 bg-[#E7F0E3] px-2 py-0.5 rounded-full"
+                          >
+                            <span>Pedido {i + 1}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {resultados.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+                        <span className="font-semibold text-[#26362B]">Laudos e resultados:</span>
+                        {resultados.map((f, i) => (
+                          <a
+                            key={i}
+                            href={getFileUrl('exames', ex.id, f)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-teal-800 font-semibold hover:underline flex items-center gap-0.5 bg-teal-100 px-2 py-0.5 rounded-full"
+                          >
+                            <span>Laudo {i + 1}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Bottom Status Flow & Transitions */}
+                <div className="mt-4 pt-3 border-t border-[#D9E2D4]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-[10px] font-semibold text-[#6B7A6F] uppercase mr-1">
+                      Mudar estado:
+                    </span>
+                    {isPendente && (
+                      <button
+                        type="button"
+                        onClick={() => openStatusModal(ex, 'Agendado')}
+                        className="px-2.5 py-1 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-900 font-semibold transition cursor-pointer"
+                      >
+                        Agendar data/local
+                      </button>
+                    )}
+                    {isAgendado && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openStatusModal(ex, 'Realizado')}
+                          className="px-2.5 py-1 rounded-full bg-teal-100 hover:bg-teal-200 text-teal-900 font-semibold transition cursor-pointer"
+                        >
+                          Marcar como Realizado
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openStatusModal(ex, 'Agendado')}
+                          className="px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-800 font-medium transition cursor-pointer border border-blue-200"
+                        >
+                          Reagendar
+                        </button>
+                      </>
+                    )}
+                    {isRealizado && (
+                      <button
+                        type="button"
+                        onClick={() => openStatusModal(ex, 'Finalizado')}
+                        className="px-2.5 py-1 rounded-full bg-[#DCE9D4] hover:bg-[#A8C3A0] text-[#26362B] font-semibold transition cursor-pointer flex items-center gap-1"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        Vincular Laudo e Finalizar
+                      </button>
+                    )}
+                    {!isCancelado && !isFinalizado && (
+                      <button
+                        type="button"
+                        onClick={() => openStatusModal(ex, 'Cancelado')}
+                        className="px-2.5 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-800 font-medium transition cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* History of status toggle */}
+                  <button
+                    onClick={() => toggleHistory(ex.id)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#4C7A5A] hover:underline cursor-pointer self-start sm:self-auto"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Histórico de transições ({historyList.length})</span>
+                    {isHistoryOpen ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+
+                {/* History Drawer */}
+                {isHistoryOpen && (
+                  <div className="mt-3 p-3.5 rounded-2xl bg-[#F6F4EF]/70 border border-[#D9E2D4] space-y-2 animate-fade-in text-xs">
+                    <span className="font-semibold text-[#26362B] block text-[11px] uppercase tracking-wider">
+                      Linha do tempo de estados deste exame
+                    </span>
+                    {historyList.length === 0 ? (
+                      <p className="text-[#6B7A6F] italic">Nenhuma transição registrada.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {historyList.map((h, i) => (
+                          <div
+                            key={i}
+                            className="bg-white p-2.5 rounded-xl border border-[#D9E2D4] flex items-center justify-between"
+                          >
+                            <div>
+                              <span className="font-semibold text-[#26362B]">{h.status}</span>
+                              {h.observacao && (
+                                <span className="text-[#6B7A6F] ml-2 italic">
+                                  — "{h.observacao}"
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-[#4C7A5A] font-medium shrink-0">
+                              {formatDateTime(h.data)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -494,7 +929,7 @@ export default function Exames() {
       {/* Main CRUD Modal Form */}
       {formOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-[#D9E2D4] relative my-8 animate-scale-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl border border-[#D9E2D4] relative my-8 animate-scale-in max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setFormOpen(false)}
               className="absolute top-6 right-6 p-1.5 rounded-full hover:bg-gray-100 text-[#6B7A6F] hover:text-[#26362B] transition"
@@ -503,62 +938,150 @@ export default function Exames() {
             </button>
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-11 h-11 rounded-2xl bg-[#5B9A8B]/15 text-[#5B9A8B] flex items-center justify-center">
-                <FileSearch className="w-6 h-6" />
+              <div className="w-11 h-11 rounded-2xl bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center">
+                <TestTube className="w-6 h-6" />
               </div>
               <div>
                 <h2 className="font-serif italic text-2xl text-[#26362B] font-semibold">
-                  {editingExame ? 'Editar exame' : 'Novo exame'}
+                  {editingExame ? 'Editar exame' : 'Cadastrar exame'}
                 </h2>
                 <p className="text-xs text-[#6B7A6F]">
-                  Cadastre o pedido e anexe os arquivos em PDF ou imagem
+                  Gestão em 5 estados, múltiplos anexos e preparo obrigatório
                 </p>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                  Nome do exame <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  placeholder="Ex.: Hemograma Completo, Ecocardiograma"
-                  className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                />
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Tipo de exame <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Nome do exame <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    placeholder="Ex.: Hemograma completo, Ecocardiograma..."
+                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Tipo de exame
                   </label>
                   <select
                     value={tipo}
                     onChange={(e) => setTipo(e.target.value as TipoExame)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                   >
-                    {TIPOS_EXAME.map((t) => (
+                    {TIPOS.map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Categoria do exame
+                  </label>
+                  <input
+                    type="text"
+                    list="categorias-sugestoes"
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                    placeholder="Ex.: Laboratorial (Sangue), Imagem..."
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                  />
+                  <datalist id="categorias-sugestoes">
+                    {CATEGORIAS_SUGERIDAS.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Status <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Médico solicitante <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={medicoId}
+                    onChange={(e) => setMedicoId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                  >
+                    <option value="">Selecione o médico...</option>
+                    {medicos.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.nome} — {doc.especialidade}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Consulta relacionada */}
+              <div>
+                <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                  Consulta relacionada (opcional)
+                </label>
+                <select
+                  value={consultaRelacionadaId}
+                  onChange={(e) => setConsultaRelacionadaId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
+                >
+                  <option value="">Nenhuma consulta vinculada</option>
+                  {consultas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {formatDate(c.data)} — {c.expand?.medico?.nome || 'Médico'} (
+                      {c.motivo_atendimento || c.tipo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Datas e Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Data da solicitação <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={dataSolicitado}
+                    onChange={(e) => setDataSolicitado(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Validade do pedido
+                  </label>
+                  <input
+                    type="date"
+                    value={dataValidade}
+                    onChange={(e) => setDataValidade(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Status do exame <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as StatusExame)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
                   >
-                    {STATUS_EXAME.map((st) => (
+                    {STATUS_LIST.map((st) => (
                       <option key={st} value={st}>
                         {st}
                       </option>
@@ -567,92 +1090,115 @@ export default function Exames() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                  Médico solicitante <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={medicoId}
-                  onChange={(e) => setMedicoId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                >
-                  <option value="">Selecione o profissional...</option>
-                  {medicos.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.nome} — {doc.especialidade}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Agendamento e Local */}
+              <div className="p-4 rounded-2xl bg-[#F6F4EF]/70 border border-[#D9E2D4] space-y-3">
+                <span className="text-xs font-semibold text-[#26362B] uppercase tracking-wider block">
+                  Agendamento e Local de Coleta / Execução
+                </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Data do pedido <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={dataSolicitado}
-                    onChange={(e) => setDataSolicitado(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Data e hora agendados
+                    </label>
+                    <input
+                      type="text"
+                      value={dataHoraAgendada}
+                      onChange={(e) => setDataHoraAgendada(e.target.value)}
+                      placeholder="Ex.: 15/10/2026 às 08:30"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Local de realização
+                    </label>
+                    <input
+                      type="text"
+                      value={localRealizacao}
+                      onChange={(e) => setLocalRealizacao(e.target.value)}
+                      placeholder="Ex.: Laboratório Fleury - Unidade Jardins"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Data de realização (opcional)
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Instruções de preparo do exame
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={instrucoesPreparo}
+                    onChange={(e) => setInstrucoesPreparo(e.target.value)}
+                    placeholder="Ex.: Jejum absoluto de 12 horas; beber 4 copos de água 1h antes; não suspender medicamentos..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Datas de execução e laudo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Data em que foi realizado
                   </label>
                   <input
                     type="date"
                     value={dataRealizado}
                     onChange={(e) => setDataRealizado(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
                   />
                 </div>
-              </div>
 
-              {/* Attachments Section */}
-              <div className="space-y-3 p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4]">
                 <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Anexar pedido médico (PDF/Imagem até 10MB)
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Data de disponibilização do resultado
                   </label>
                   <input
-                    ref={pedidoInputRef}
-                    type="file"
-                    accept=".pdf,image/png,image/jpeg,image/webp,.doc,.docx"
-                    onChange={(e) => setPedidoFile(e.target.files?.[0] || null)}
-                    className="text-xs text-[#6B7A6F] file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#4C7A5A] file:text-white hover:file:bg-[#3F664C] cursor-pointer"
-                  />
-                </div>
-
-                <div className="pt-2 border-t border-[#D9E2D4]/60">
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                    Anexar resultado / laudo (PDF/Imagem até 10MB)
-                  </label>
-                  <input
-                    ref={resultadoInputRef}
-                    type="file"
-                    accept=".pdf,image/png,image/jpeg,image/webp,.doc,.docx"
-                    onChange={(e) => setResultadoFile(e.target.files?.[0] || null)}
-                    className="text-xs text-[#6B7A6F] file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#5B9A8B] file:text-white hover:file:bg-[#477a6e] cursor-pointer"
+                    type="date"
+                    value={dataDisponibilizacaoResultado}
+                    onChange={(e) => setDataDisponibilizacaoResultado(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                  Observações e preparos
-                </label>
-                <textarea
-                  rows={2}
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="Ex.: Jejum de 8h; laboratório Fleury..."
-                  className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-                />
+              {/* Uploads Múltiplos: Pedidos e Resultados */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#D9E2D4]">
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Pedidos médicos anexados (múltiplos permitidos)
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,image/png,image/jpeg,image/webp,.doc,.docx"
+                    onChange={(e) => {
+                      if (e.target.files) setPedidosFiles(Array.from(e.target.files))
+                    }}
+                    className="w-full text-xs text-[#6B7A6F] file:mr-2 file:py-1 file:px-2.5 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#4C7A5A] file:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Laudos e resultados anexados (múltiplos permitidos)
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,image/png,image/jpeg,image/webp,.doc,.docx"
+                    onChange={(e) => {
+                      if (e.target.files) setResultadosFiles(Array.from(e.target.files))
+                    }}
+                    className="w-full text-xs text-[#6B7A6F] file:mr-2 file:py-1 file:px-2.5 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-700 file:text-white"
+                  />
+                  <span className="text-[10px] text-[#6B7A6F] block mt-0.5">
+                    O status "Finalizado" exige laudo anexado.
+                  </span>
+                </div>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-3">
@@ -676,68 +1222,99 @@ export default function Exames() {
         </div>
       )}
 
-      {/* Quick Upload Result Modal */}
-      {quickResultModalOpen && targetExameForQuickResult && (
+      {/* Status Transition Modal (Reagendar, Anexar resultado, Registrar histórico) */}
+      {statusModalOpen && selectedExameForStatus && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#D9E2D4] space-y-4 animate-scale-in">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#E7F0E3] text-[#4C7A5A] flex items-center justify-center">
-                <Upload className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-2xl bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center">
+                <CalendarClock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-serif italic text-xl text-[#26362B] font-semibold">
-                  Anexar resultado
+                <h3 className="font-serif italic text-lg text-[#26362B] font-semibold">
+                  Mudar status: {targetStatus}
                 </h3>
-                <p className="text-xs text-[#6B7A6F]">{targetExameForQuickResult.nome}</p>
+                <p className="text-xs text-[#6B7A6F]">{selectedExameForStatus.nome}</p>
               </div>
             </div>
 
-            <form onSubmit={handleQuickResultSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1.5 uppercase tracking-wider">
-                  Arquivo do laudo / resultado <span className="text-red-500">*</span>
-                </label>
+            {targetStatus === 'Agendado' && (
+              <div className="space-y-3 p-3.5 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4]">
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Data e horário agendados
+                  </label>
+                  <input
+                    type="text"
+                    value={newAgendamentoDataHora}
+                    onChange={(e) => setNewAgendamentoDataHora(e.target.value)}
+                    placeholder="Ex.: 22/10/2026 às 08:00"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                    Local / Laboratório
+                  </label>
+                  <input
+                    type="text"
+                    value={newLocal}
+                    onChange={(e) => setNewLocal(e.target.value)}
+                    placeholder="Ex.: Laboratório Fleury"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {targetStatus === 'Finalizado' && (
+              <div className="space-y-3 p-3.5 rounded-2xl bg-teal-50 border border-teal-200">
+                <div className="flex items-start gap-2 text-xs text-teal-900">
+                  <CheckCircle2 className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                  <span>
+                    Para finalizar este exame, o resultado deve ser vinculado. Anexe o arquivo do
+                    laudo abaixo:
+                  </span>
+                </div>
                 <input
                   type="file"
-                  required
                   accept=".pdf,image/png,image/jpeg,image/webp,.doc,.docx"
-                  onChange={(e) => setQuickResultFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-[#6B7A6F] file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#4C7A5A] file:text-white hover:file:bg-[#3F664C] cursor-pointer"
-                />
-                <p className="text-[11px] text-[#6B7A6F] mt-1">
-                  Formatos aceitos: PDF, PNG, JPG, WEBP, DOCX (até 10MB)
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1.5 uppercase tracking-wider">
-                  Data de realização
-                </label>
-                <input
-                  type="date"
-                  value={quickRealizadoDate}
-                  onChange={(e) => setQuickRealizadoDate(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-sm focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+                  onChange={(e) => setNewResultFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-[#6B7A6F] file:mr-2 file:py-1 file:px-2.5 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-700 file:text-white"
                 />
               </div>
+            )}
 
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setQuickResultModalOpen(false)}
-                  className="px-4 py-2 rounded-full border border-[#D9E2D4] text-xs font-medium text-[#6B7A6F]"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploadingQuick || !quickResultFile}
-                  className="px-5 py-2 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold disabled:opacity-50"
-                >
-                  {uploadingQuick ? 'Enviando laudo...' : 'Concluir exame com laudo'}
-                </button>
-              </div>
-            </form>
+            <div>
+              <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                Observação para o histórico
+              </label>
+              <textarea
+                rows={2}
+                value={statusObservation}
+                onChange={(e) => setStatusObservation(e.target.value)}
+                placeholder="Ex.: Exame reagendado a pedido do paciente; coleta em jejum realizada..."
+                className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setStatusModalOpen(false)}
+                className="px-4 py-2 rounded-full border border-[#D9E2D4] text-xs font-medium text-[#6B7A6F]"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleConfirmStatusChange}
+                className="px-5 py-2 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold disabled:opacity-50"
+              >
+                {saving ? 'Gravando...' : 'Confirmar transição'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -754,8 +1331,9 @@ export default function Exames() {
                 Excluir exame?
               </h3>
               <p className="text-xs text-[#6B7A6F] mt-1">
-                Tem certeza? Esta ação removerá <strong>{exameToDelete.nome}</strong> e os arquivos
-                associados.
+                Remover <strong>{exameToDelete.nome}</strong> apagará o pedido e o histórico. Se o
+                exame foi cancelado, prefira mudar o status para <strong>Cancelado</strong> para
+                preservar a auditoria.
               </p>
             </div>
 
