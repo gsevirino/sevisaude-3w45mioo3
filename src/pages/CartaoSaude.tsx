@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { getMedicamentos } from '@/services/healthService'
 import type { Medicamento } from '@/types/health'
 import { useAuth } from '@/context/AuthContext'
+import { formatarData } from '@/lib/dateUtils'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import {
   CreditCard,
@@ -260,7 +261,7 @@ export default function CartaoSaude() {
                   </h3>
                   {user?.meta?.dataNascimento && (
                     <span className="text-[10px] text-white/80">
-                      Nasc: {user.meta.dataNascimento.split('-').reverse().join('/')}
+                      Nasc: {formatarData(user.meta.dataNascimento)}
                     </span>
                   )}
                 </div>

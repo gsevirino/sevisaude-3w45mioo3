@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatarData, formatarHora, extrairDataIso } from '@/lib/dateUtils'
 import { getConsultas, getExames } from '@/services/healthService'
 import type { Consulta, Exame } from '@/types/health'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
@@ -144,13 +145,13 @@ export default function Calendario() {
   const eventsByDate: Record<string, DayEvent[]> = {}
 
   consultas.forEach((c) => {
-    const d = c.data ? c.data.split('T')[0] : ''
+    const d = extrairDataIso(c.data)
     if (!d) return
     if (!eventsByDate[d]) eventsByDate[d] = []
     eventsByDate[d].push({
       id: `c-${c.id}`,
       title: `Consulta — ${c.expand?.medico?.nome || 'Médico'}`,
-      time: c.horario,
+      time: formatarHora(c.horario),
       doctorName: c.expand?.medico?.nome,
       doctorSpecialty: c.expand?.medico?.especialidade,
       type: 'consulta',
@@ -162,13 +163,9 @@ export default function Calendario() {
 
   exames.forEach((e) => {
     const d =
-      e.data_hora_agendada && e.data_hora_agendada.includes('/')
-        ? e.data_hora_agendada.split(' ')[0].split('/').reverse().join('-')
-        : e.data_realizado
-          ? e.data_realizado.split('T')[0]
-          : e.data_solicitado
-            ? e.data_solicitado.split('T')[0]
-            : ''
+      extrairDataIso(e.data_hora_agendada) ||
+      extrairDataIso(e.data_realizado) ||
+      extrairDataIso(e.data_solicitado)
     if (!d) return
     if (!eventsByDate[d]) eventsByDate[d] = []
     eventsByDate[d].push({
@@ -189,8 +186,7 @@ export default function Calendario() {
   }).format(currentDate)
 
   const handleDayClick = (dateStr: string, events: DayEvent[]) => {
-    const [y, m, d] = dateStr.split('-')
-    setSelectedDayLabel(`${d}/${m}/${y}`)
+    setSelectedDayLabel(formatarData(dateStr))
     setSelectedDayEvents(events || [])
   }
 

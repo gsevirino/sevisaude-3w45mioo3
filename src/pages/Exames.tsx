@@ -43,6 +43,13 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import {
+  formatarData,
+  formatarHora,
+  formatarDataHora,
+  formatarTimestampLocal,
+  extrairDataIso,
+} from '@/lib/dateUtils'
 
 const TIPOS: TipoExame[] = [
   'Sangue',
@@ -156,7 +163,7 @@ export default function Exames() {
     setCategoria('Laboratorial (Sangue/Urina)')
     setMedicoId(medicos[0]?.id || '')
     setConsultaRelacionadaId('')
-    const today = new Date().toISOString().split('T')[0]
+    const today = extrairDataIso(new Date().toISOString())
     setDataSolicitado(today)
     setDataValidade('')
     setLocalRealizacao('')
@@ -178,15 +185,13 @@ export default function Exames() {
     setCategoria(ex.categoria || '')
     setMedicoId(ex.medico || '')
     setConsultaRelacionadaId(ex.consulta_relacionada || '')
-    setDataSolicitado(ex.data_solicitado ? ex.data_solicitado.split('T')[0] : '')
-    setDataValidade(ex.data_validade ? ex.data_validade.split('T')[0] : '')
+    setDataSolicitado(extrairDataIso(ex.data_solicitado))
+    setDataValidade(extrairDataIso(ex.data_validade))
     setLocalRealizacao(ex.local_realizacao || '')
     setDataHoraAgendada(ex.data_hora_agendada || '')
     setInstrucoesPreparo(ex.instrucoes_preparo || '')
-    setDataRealizado(ex.data_realizado ? ex.data_realizado.split('T')[0] : '')
-    setDataDisponibilizacaoResultado(
-      ex.data_disponibilizacao_resultado ? ex.data_disponibilizacao_resultado.split('T')[0] : '',
-    )
+    setDataRealizado(extrairDataIso(ex.data_realizado))
+    setDataDisponibilizacaoResultado(extrairDataIso(ex.data_disponibilizacao_resultado))
     setStatus(ex.status)
     setObservacoes(ex.observacoes || '')
     setPedidosFiles([])
@@ -328,7 +333,7 @@ export default function Exames() {
       }
 
       if (targetStatus === 'Realizado' && !selectedExameForStatus.data_realizado) {
-        formData.append('data_realizado', new Date().toISOString().split('T')[0])
+        formData.append('data_realizado', extrairDataIso(new Date().toISOString()))
       }
 
       if (newResultFile) {
@@ -399,28 +404,8 @@ export default function Exames() {
     setExpandedHistory((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return ''
-    const clean = iso.split('T')[0]
-    const [y, m, d] = clean.split('-')
-    return `${d}/${m}/${y}`
-  }
-
-  const formatDateTime = (iso?: string) => {
-    if (!iso) return ''
-    try {
-      const d = new Date(iso)
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    } catch {
-      return formatDate(iso)
-    }
-  }
+  const formatDate = (iso?: string) => formatarData(iso)
+  const formatDateTime = (iso?: string) => formatarTimestampLocal(iso)
 
   // Obter listas únicas para os filtros
   const categoriasUnicas = Array.from(
@@ -715,7 +700,7 @@ export default function Exames() {
                           {ex.data_hora_agendada && (
                             <span className="flex items-center gap-1.5 font-semibold text-[#4C7A5A]">
                               <CalendarClock className="w-3.5 h-3.5" />
-                              Agendado: {ex.data_hora_agendada}
+                              Agendado: {formatarDataHora(ex.data_hora_agendada)}
                             </span>
                           )}
                           {ex.local_realizacao && (

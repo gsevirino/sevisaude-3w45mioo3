@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { formatarData, extrairDataIso } from '@/lib/dateUtils'
 
 interface UnifiedDoc {
   id: string
@@ -102,7 +103,7 @@ export default function Documentos() {
       titulo: d.titulo,
       categoria: d.categoria,
       origem: d.expand?.exame_ref?.nome || 'Geral',
-      data: d.created ? d.created.split('T')[0] : '',
+      data: extrairDataIso(d.created),
       url: getFileUrl('documentos', d.id, d.arquivo),
       tipoArquivo: tipo,
       canDelete: true,
@@ -122,7 +123,7 @@ export default function Documentos() {
         titulo: `Pedido Médico — ${e.nome}`,
         categoria: 'Exame — Pedido',
         origem: e.nome,
-        data: e.data_solicitado ? e.data_solicitado.split('T')[0] : '',
+        data: extrairDataIso(e.data_solicitado),
         url: getFileUrl('exames', e.id, e.pedido_arquivo),
         tipoArquivo: tipo,
         canDelete: false,
@@ -139,7 +140,7 @@ export default function Documentos() {
         titulo: `Laudo / Resultado — ${e.nome}`,
         categoria: 'Exame — Resultado',
         origem: e.nome,
-        data: e.data_realizado ? e.data_realizado.split('T')[0] : e.data_solicitado.split('T')[0],
+        data: extrairDataIso(e.data_realizado) || extrairDataIso(e.data_solicitado),
         url: getFileUrl('exames', e.id, e.resultado_arquivo),
         tipoArquivo: tipo,
         canDelete: false,
@@ -224,12 +225,7 @@ export default function Documentos() {
     }
   }
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return ''
-    const clean = iso.split('T')[0]
-    const [y, m, d] = clean.split('-')
-    return `${d}/${m}/${y}`
-  }
+  const formatDate = (iso?: string) => formatarData(iso)
 
   return (
     <div className="space-y-8 animate-fade-in">

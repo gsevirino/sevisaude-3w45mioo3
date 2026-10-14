@@ -44,6 +44,7 @@ import {
   Search,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { formatarData, formatarHora, formatarTimestampLocal, extrairDataIso } from '@/lib/dateUtils'
 
 const FORMAS: { label: string; value: FormaFarmaceutica }[] = [
   { label: 'Comprimido', value: 'comprimido' },
@@ -179,13 +180,13 @@ export default function Medicamentos() {
     setFrequencia('12 em 12 horas')
     setInstrucoesPrescricao('')
     setTipoUso('contínuo')
-    setDataPrescricao(new Date().toISOString().split('T')[0])
+    setDataPrescricao(extrairDataIso(new Date().toISOString()))
     setStatus('em uso')
     setDosagem('')
     setForma('comprimido')
     setLaboratorio('')
     setMedicoId(medicos[0]?.id || '')
-    setDataInicio(new Date().toISOString().split('T')[0])
+    setDataInicio(extrairDataIso(new Date().toISOString()))
     setDataFim('')
     setHorarios(['08:00'])
     setObservacoes('')
@@ -205,14 +206,14 @@ export default function Medicamentos() {
     setFrequencia(m.frequencia || '')
     setInstrucoesPrescricao(m.instrucoes_prescricao || '')
     setTipoUso(m.tipo_uso || 'contínuo')
-    setDataPrescricao(m.data_prescricao ? m.data_prescricao.split('T')[0] : '')
+    setDataPrescricao(extrairDataIso(m.data_prescricao))
     setStatus(m.status || 'em uso')
     setDosagem(m.dosagem || '')
     setForma(m.forma || 'comprimido')
     setLaboratorio(m.laboratorio || '')
     setMedicoId(m.medico || '')
-    setDataInicio(m.data_inicio ? m.data_inicio.split('T')[0] : '')
-    setDataFim(m.data_fim ? m.data_fim.split('T')[0] : '')
+    setDataInicio(extrairDataIso(m.data_inicio))
+    setDataFim(extrairDataIso(m.data_fim))
     setHorarios(Array.isArray(m.horarios) && m.horarios.length > 0 ? m.horarios : ['08:00'])
     setObservacoes(m.observacoes || '')
     setReceitaFile(null)
@@ -365,7 +366,7 @@ export default function Medicamentos() {
       } else if (pendingAction.type === 'status_change') {
         const payload: Partial<Medicamento> = { status: pendingAction.newStatus }
         if (pendingAction.newStatus === 'concluído') {
-          payload.data_fim = new Date().toISOString().split('T')[0]
+          payload.data_fim = extrairDataIso(new Date().toISOString())
         }
         await updateMedicamento(pendingAction.target.id, payload, {
           campo_alterado: `Status alterado de "${pendingAction.target.status}" para "${pendingAction.newStatus}"`,
@@ -442,28 +443,8 @@ export default function Medicamentos() {
     }
   }
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return ''
-    const clean = iso.split('T')[0]
-    const [y, m, d] = clean.split('-')
-    return `${d}/${m}/${y}`
-  }
-
-  const formatDateTime = (iso?: string) => {
-    if (!iso) return ''
-    try {
-      const d = new Date(iso)
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    } catch {
-      return formatDate(iso)
-    }
-  }
+  const formatDate = (iso?: string) => formatarData(iso)
+  const formatDateTime = (iso?: string) => formatarTimestampLocal(iso)
 
   // Identificar campos incompletos sem inventar valores
   const getIncompleteFields = (m: Medicamento): string[] => {

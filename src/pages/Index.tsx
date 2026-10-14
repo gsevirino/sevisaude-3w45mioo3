@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { formatarData, formatarHora, extrairDataIso } from '@/lib/dateUtils'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getMedicamentos, getConsultas, getExames, getDocumentos } from '@/services/healthService'
@@ -78,7 +79,7 @@ export default function Index() {
 
   // Find upcoming appointments
   const now = new Date()
-  const todayStr = now.toISOString().split('T')[0]
+  const todayStr = extrairDataIso(now.toISOString())
 
   const upcomingConsultas = consultas
     .filter((c) => c.status === 'Agendada' && c.data >= todayStr)
@@ -120,7 +121,7 @@ export default function Index() {
   medicamentos.forEach((m) => {
     timeline.push({
       id: `med-${m.id}`,
-      date: m.data_inicio ? m.data_inicio.split('T')[0] : '',
+      date: extrairDataIso(m.data_inicio),
       title: `Início de medicação: ${m.nome}`,
       subtitle: `${m.dosagem} • ${m.forma} • Prescrito por ${m.expand?.medico?.nome || 'Médico'}`,
       type: 'medicamento',
@@ -133,8 +134,8 @@ export default function Index() {
   consultas.forEach((c) => {
     timeline.push({
       id: `con-${c.id}`,
-      date: c.data ? c.data.split('T')[0] : '',
-      time: c.horario,
+      date: extrairDataIso(c.data),
+      time: formatarHora(c.horario),
       title: `Consulta: ${c.expand?.medico?.nome || 'Médico'}`,
       subtitle: `${c.tipo} • ${c.expand?.medico?.especialidade || 'Geral'}${
         c.anotacoes ? ` • "${c.anotacoes.slice(0, 70)}..."` : ''
@@ -153,7 +154,7 @@ export default function Index() {
   exames.forEach((e) => {
     timeline.push({
       id: `ex-${e.id}`,
-      date: e.data_realizado ? e.data_realizado.split('T')[0] : e.data_solicitado.split('T')[0],
+      date: extrairDataIso(e.data_realizado) || extrairDataIso(e.data_solicitado),
       title: `Exame: ${e.nome}`,
       subtitle: `Tipo: ${e.tipo} • Solicitado por ${e.expand?.medico?.nome || 'Médico'}`,
       type: 'exame',
@@ -171,12 +172,7 @@ export default function Index() {
 
   timeline.sort((a, b) => b.date.localeCompare(a.date))
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return ''
-    const clean = iso.split('T')[0]
-    const [y, m, d] = clean.split('-')
-    return `${d}/${m}/${y}`
-  }
+  const formatDate = (iso?: string) => formatarData(iso)
 
   const todayFormatted = new Intl.DateTimeFormat('pt-BR', {
     weekday: 'long',
@@ -268,7 +264,7 @@ export default function Index() {
             {loading
               ? '—'
               : nextConsulta
-                ? `${formatDate(nextConsulta.data)} • ${nextConsulta.horario}`
+                ? `${formatDate(nextConsulta.data)} • ${formatarHora(nextConsulta.horario)}`
                 : 'Nenhuma agendada'}
           </div>
           <p className="text-xs text-[#6B7A6F] mt-1 truncate">
@@ -398,13 +394,18 @@ export default function Index() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-white border border-[#D9E2D4] text-[#4C7A5A] flex flex-col items-center justify-center shrink-0">
                       <span className="text-[10px] font-bold leading-none">
-                        {c.data ? c.data.split('T')[0].split('-')[2] : '—'}
+                        {c.data ? formatarData(c.data).split('/')[0] : '—'}
                       </span>
                       <span className="text-[9px] uppercase text-[#6B7A6F] leading-none mt-0.5">
                         {c.data
-                          ? new Date(c.data + 'T12:00:00')
-                              .toLocaleDateString('pt-BR', { month: 'short' })
-                              .replace('.', '')
+                          ? (() => {
+                              const iso = extrairDataIso(c.data)
+                              return iso
+                                ? new Date(iso + 'T12:00:00')
+                                    .toLocaleDateString('pt-BR', { month: 'short' })
+                                    .replace('.', '')
+                                : ''
+                            })()
                           : ''}
                       </span>
                     </div>
@@ -413,7 +414,8 @@ export default function Index() {
                         {c.expand?.medico?.nome || 'Profissional'}
                       </h4>
                       <p className="text-xs text-[#6B7A6F]">
-                        {c.expand?.medico?.especialidade || 'Consulta'} • {c.horario} • {c.tipo}
+                        {c.expand?.medico?.especialidade || 'Consulta'} • {formatarHora(c.horario)}{' '}
+                        • {c.tipo}
                       </p>
                     </div>
                   </div>

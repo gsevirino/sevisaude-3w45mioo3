@@ -45,6 +45,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { formatarData, formatarHora, extrairDataIso } from '@/lib/dateUtils'
 
 const STATUS_FILTERS: (StatusConsulta | 'Todas')[] = ['Todas', 'Agendada', 'Realizada', 'Cancelada']
 const TIPOS: TipoConsulta[] = ['Presencial', 'Teleconsulta', 'Domiciliar']
@@ -136,7 +137,7 @@ export default function Consultas() {
   const openNewForm = () => {
     setEditingConsulta(null)
     setMedicoId(medicos[0]?.id || '')
-    const today = new Date().toISOString().split('T')[0]
+    const today = extrairDataIso(new Date().toISOString())
     setData(today)
     setHorario('09:30')
     setTipo('Presencial')
@@ -165,8 +166,8 @@ export default function Consultas() {
   const openEditForm = (c: Consulta) => {
     setEditingConsulta(c)
     setMedicoId(c.medico)
-    setData(c.data ? c.data.split('T')[0] : '')
-    setHorario(c.horario || '09:00')
+    setData(extrairDataIso(c.data))
+    setHorario(formatarHora(c.horario) || '09:00')
     setTipo(c.tipo)
     setLocal(c.local || '')
     setStatus(c.status)
@@ -182,11 +183,9 @@ export default function Consultas() {
     setExamesSolicitados(c.exames_solicitados_relacionados || '')
     setEncaminhamentos(c.encaminhamentos || '')
     setProximosPassos(c.proximos_passos || '')
-    setDataPrevistaRetorno(c.data_prevista_retorno ? c.data_prevista_retorno.split('T')[0] : '')
+    setDataPrevistaRetorno(extrairDataIso(c.data_prevista_retorno))
     setDataRegistroNotas(
-      c.data_registro_notas
-        ? c.data_registro_notas.split('T')[0]
-        : new Date().toISOString().split('T')[0],
+      extrairDataIso(c.data_registro_notas) || extrairDataIso(new Date().toISOString()),
     )
 
     setSelectedMedsIds(
@@ -249,7 +248,7 @@ export default function Consultas() {
       if (dataPrevistaRetorno) formData.append('data_prevista_retorno', dataPrevistaRetorno)
       formData.append(
         'data_registro_notas',
-        dataRegistroNotas || new Date().toISOString().split('T')[0],
+        dataRegistroNotas || extrairDataIso(new Date().toISOString()),
       )
 
       formData.append('medicamentos_relacionados_ids', JSON.stringify(selectedMedsIds))
@@ -317,12 +316,8 @@ export default function Consultas() {
     setExpandedDetails((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return ''
-    const clean = iso.split('T')[0]
-    const [y, m, d] = clean.split('-')
-    return `${d}/${m}/${y}`
-  }
+  const formatDate = (iso?: string) => formatarData(iso)
+  const formatTime = (time?: string) => formatarHora(time)
 
   // Filtered list
   const filteredConsultas = consultas.filter((c) => {
@@ -507,7 +502,7 @@ export default function Consultas() {
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                          {c.horario}
+                          {formatTime(c.horario)}
                         </span>
                         {c.local && (
                           <span className="flex items-center gap-1.5">
