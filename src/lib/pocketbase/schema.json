@@ -1,0 +1,528 @@
+{
+  "generatedAt": "2026-10-14T23:14:32.423Z",
+  "collections": [
+    {
+      "name": "users",
+      "type": "auth",
+      "apiRules": {
+        "list": "id = @request.auth.id",
+        "view": "id = @request.auth.id",
+        "create": "",
+        "update": "id = @request.auth.id",
+        "delete": "id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "medicos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && userId = @request.auth.id",
+        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "delete": "@request.auth.id != '' && userId = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "especialidade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "crm",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telefone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "userId",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_medicos_userId ON medicos (userId)",
+        "CREATE INDEX idx_medicos_especialidade ON medicos (especialidade)"
+      ]
+    },
+    {
+      "name": "medicamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && userId = @request.auth.id",
+        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "delete": "@request.auth.id != '' && userId = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dosagem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "forma",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "comprimido",
+            "cápsula",
+            "xarope",
+            "solução",
+            "injetável",
+            "creme",
+            "outro"
+          ]
+        },
+        {
+          "name": "laboratorio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "medico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "medicos"
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "horarios",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "encerrado"]
+        },
+        {
+          "name": "userId",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_medicamentos_userId ON medicamentos (userId)",
+        "CREATE INDEX idx_medicamentos_status ON medicamentos (status)",
+        "CREATE INDEX idx_medicamentos_data_inicio ON medicamentos (data_inicio)"
+      ]
+    },
+    {
+      "name": "alteracoes_medicamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "medicamento",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "medicamentos"
+        },
+        {
+          "name": "motivo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_alteracoes_medicamento ON alteracoes_medicamentos (medicamento)"
+      ]
+    },
+    {
+      "name": "consultas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && userId = @request.auth.id",
+        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "delete": "@request.auth.id != '' && userId = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "medico",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "medicos"
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "horario",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Presencial", "Teleconsulta", "Domiciliar"]
+        },
+        {
+          "name": "local",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Agendada", "Realizada", "Cancelada"]
+        },
+        {
+          "name": "anotacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "userId",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_consultas_userId ON consultas (userId)",
+        "CREATE INDEX idx_consultas_data ON consultas (data)",
+        "CREATE INDEX idx_consultas_status ON consultas (status)"
+      ]
+    },
+    {
+      "name": "exames",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && userId = @request.auth.id",
+        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "delete": "@request.auth.id != '' && userId = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Sangue", "Imagem", "Urina", "Fezes", "Cardíaco", "Preventivo", "Outro"]
+        },
+        {
+          "name": "medico",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "medicos"
+        },
+        {
+          "name": "data_solicitado",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_realizado",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Solicitado", "Em análise", "Concluído"]
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pedido_arquivo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado_arquivo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "userId",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_exames_userId ON exames (userId)",
+        "CREATE INDEX idx_exames_status ON exames (status)",
+        "CREATE INDEX idx_exames_data_solicitado ON exames (data_solicitado)",
+        "CREATE INDEX idx_exames_data_realizado ON exames (data_realizado)"
+      ]
+    },
+    {
+      "name": "documentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && userId = @request.auth.id",
+        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "delete": "@request.auth.id != '' && userId = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "categoria",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "Exame — Pedido",
+            "Exame — Resultado",
+            "Receita",
+            "Laudo",
+            "Atestado",
+            "Outro"
+          ]
+        },
+        {
+          "name": "exame_ref",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "exames"
+        },
+        {
+          "name": "arquivo",
+          "type": "file",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "userId",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_documentos_userId ON documentos (userId)",
+        "CREATE INDEX idx_documentos_categoria ON documentos (categoria)"
+      ]
+    }
+  ]
+}
