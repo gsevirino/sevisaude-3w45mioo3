@@ -17,9 +17,8 @@ import {
   LogOut,
   Menu,
   X,
-  Leaf,
-  Sprout,
 } from 'lucide-react'
+import SeviSaudeLogo, { SeviSaudeIcon } from '@/components/SeviSaudeLogo'
 import { toast } from '@/hooks/use-toast'
 
 interface NavItem {
@@ -113,12 +112,15 @@ export default function Layout() {
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-              <Leaf className="w-4 h-4 text-white" />
+            <SeviSaudeIcon size={26} variant="light" />
+            <div className="flex items-baseline gap-0.5">
+              <span className="font-serif italic font-semibold text-lg tracking-tight text-white">
+                Sevi
+              </span>
+              <span className="font-serif italic font-bold text-lg tracking-tight text-[#74C69D]">
+                Saúde
+              </span>
             </div>
-            <span className="font-serif italic font-semibold text-lg tracking-tight">
-              VerdeVida
-            </span>
           </div>
         </div>
 
@@ -153,14 +155,15 @@ export default function Layout() {
       >
         <div className="flex items-center justify-between pb-4 border-b border-white/15">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shadow">
-              <Sprout className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-2xl bg-white/15 flex items-center justify-center shadow">
+              <SeviSaudeIcon size={24} variant="light" />
             </div>
             <div>
-              <span className="font-serif italic font-bold text-xl block leading-tight">
-                VerdeVida
-              </span>
-              <span className="text-[11px] text-[#DCE9D4]">Prontuário particular</span>
+              <div className="flex items-baseline gap-0.5">
+                <span className="font-serif italic font-bold text-xl text-white">Sevi</span>
+                <span className="font-serif italic font-bold text-xl text-[#74C69D]">Saúde</span>
+              </div>
+              <span className="text-[11px] text-[#DCE9D4]">Sua jornada conectada</span>
             </div>
           </div>
           <button
@@ -206,14 +209,21 @@ export default function Layout() {
         <aside className="hidden lg:flex flex-col w-64 bg-gradient-to-b from-[#4C7A5A] to-[#385942] text-white p-5 fixed top-0 bottom-0 left-0 z-30 shadow-xl no-print">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3 pb-4 border-b border-white/15">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner ring-2 ring-white/10">
-              <Sprout className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center shadow-inner ring-2 ring-white/10 shrink-0">
+              <SeviSaudeIcon size={26} variant="light" />
             </div>
             <div>
-              <span className="font-serif italic font-bold text-2xl tracking-tight block leading-none">
-                VerdeVida
+              <div className="flex items-baseline gap-0.5 leading-none">
+                <span className="font-serif italic font-bold text-2xl tracking-tight text-white">
+                  Sevi
+                </span>
+                <span className="font-serif italic font-bold text-2xl tracking-tight text-[#74C69D]">
+                  Saúde
+                </span>
+              </div>
+              <span className="text-[11px] text-[#DCE9D4] font-light block mt-1">
+                Prontuário particular
               </span>
-              <span className="text-[11px] text-[#DCE9D4] font-light">Prontuário particular</span>
             </div>
           </div>
 
@@ -258,9 +268,15 @@ export default function Layout() {
           </main>
 
           {/* Discreet Footer */}
-          <footer className="py-6 px-4 text-center border-t border-[#D9E2D4]/60 text-xs text-[#6B7A6F] flex items-center justify-center gap-2 no-print">
-            <Leaf className="w-3.5 h-3.5 text-[#4C7A5A]" />
-            <span>VerdeVida — seu prontuário pessoal e familiar de saúde</span>
+          <footer className="py-6 px-4 text-center border-t border-[#D9E2D4]/60 text-xs text-[#6B7A6F] flex flex-col sm:flex-row items-center justify-center gap-2 no-print">
+            <div className="flex items-center gap-1.5">
+              <SeviSaudeIcon size={16} variant="brand" />
+              <span>
+                <strong>SeviSaúde</strong> — Sua jornada de saúde, conectada.
+              </span>
+            </div>
+            <span className="hidden sm:inline text-[#D9E2D4]">•</span>
+            <span className="text-[11px] text-[#6B7A6F]/80">sevisaude.com.br</span>
           </footer>
         </div>
       </div>

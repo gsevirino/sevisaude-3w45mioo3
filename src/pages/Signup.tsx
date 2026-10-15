@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { Leaf, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, Loader2, CheckCircle2 } from 'lucide-react'
+import SeviSaudeLogo from '@/components/SeviSaudeLogo'
 import { toast } from '@/hooks/use-toast'
 
 export default function Signup() {
@@ -69,13 +70,16 @@ export default function Signup() {
 
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#4C7A5A] text-white shadow-lg mb-4 ring-8 ring-[#DCE9D4]/60">
-            <Leaf className="w-8 h-8" />
-          </div>
-          <h1 className="font-serif italic text-3xl md:text-4xl text-[#26362B] font-semibold tracking-tight">
+          <SeviSaudeLogo
+            layout="vertical"
+            size={48}
+            showSlogan
+            sloganText="Sua jornada de saúde, conectada."
+          />
+          <h1 className="font-serif italic text-2xl md:text-3xl text-[#26362B] font-semibold tracking-tight mt-3">
             Criar meu prontuário
           </h1>
-          <p className="text-[#6B7A6F] mt-2 text-sm font-sans">
+          <p className="text-[#6B7A6F] mt-1.5 text-xs font-sans">
             Comece a organizar medicamentos, consultas e exames em um só lugar seguro
           </p>
         </div>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { Leaf, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import SeviSaudeLogo from '@/components/SeviSaudeLogo'
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -34,8 +35,8 @@ export default function VerifyEmail() {
   return (
     <div className="min-h-screen bg-[#F6F4EF] flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-md border border-[#D9E2D4] text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#4C7A5A] text-white shadow mb-4">
-          <Leaf className="w-7 h-7" />
+        <div className="mb-4">
+          <SeviSaudeLogo layout="vertical" size={44} />
         </div>
         <h1 className="font-serif italic text-2xl text-[#26362B] mb-2 font-semibold">
           Verificação de E-mail
@@ -53,7 +54,7 @@ export default function VerifyEmail() {
             <CheckCircle2 className="w-12 h-12 text-[#4C7A5A] mx-auto" />
             <p className="text-sm text-[#26362B] font-medium">E-mail confirmado com sucesso!</p>
             <p className="text-xs text-[#6B7A6F]">
-              Agora você pode aproveitar todos os recursos do seu prontuário VerdeVida.
+              Agora você pode aproveitar todos os recursos do seu prontuário SeviSaúde.
             </p>
             <div className="pt-2">
               <Link

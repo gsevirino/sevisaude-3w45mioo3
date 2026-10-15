@@ -24,7 +24,7 @@ interface HealthProfileContextType {
 
 const HealthProfileContext = createContext<HealthProfileContextType | undefined>(undefined)
 
-const STORAGE_ACTIVE_PROFILE_KEY = 'verdevida_active_profile_id'
+const STORAGE_ACTIVE_PROFILE_KEY = 'sevisaude_active_profile_id'
 
 export const HealthProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated } = useAuth()

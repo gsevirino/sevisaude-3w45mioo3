@@ -348,7 +348,7 @@ export default function TitularesManager() {
         <div className="p-4 rounded-2xl bg-[#F6F4EF]/80 border border-[#D9E2D4] text-xs text-[#4C7A5A] flex items-start gap-2.5">
           <Shield className="w-4 h-4 shrink-0 mt-0.5 text-[#4C7A5A]" />
           <div>
-            <strong>Representação de menores e tutela:</strong> o VerdeVida suporta o cadastro de
+            <strong>Representação de menores e tutela:</strong> o SeviSaúde suporta o cadastro de
             dependentes sob cuidado do titular principal. As permissões de acesso respeitam o
             isolamento dos dados de cada pessoa.
           </div>

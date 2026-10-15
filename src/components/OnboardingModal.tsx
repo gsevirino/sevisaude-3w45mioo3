@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
 import { Heart, UserCheck, Pill, Users, ArrowRight, Check, Shield, Sparkles } from 'lucide-react'
+import { SeviSaudeIcon } from '@/components/SeviSaudeLogo'
 import { updateHealthProfile } from '@/services/healthProfileService'
 import { toast } from '@/hooks/use-toast'
 
@@ -97,7 +98,7 @@ export default function OnboardingModal({ onClose }: OnboardingModalProps) {
             </div>
             <div>
               <h2 className="font-serif italic font-semibold text-lg text-[#26362B]">
-                Boas-vindas ao VerdeVida
+                Boas-vindas ao SeviSaúde
               </h2>
               <p className="text-xs text-[#6B7A6F]">
                 {step === 1 && 'Etapa 1: Confirmação do seu titular de saúde'}
@@ -294,7 +295,7 @@ export default function OnboardingModal({ onClose }: OnboardingModalProps) {
                 Você no controle da saúde da família
               </h3>
               <p className="text-xs text-[#6B7A6F] mt-1 max-w-md mx-auto leading-relaxed">
-                Agora o VerdeVida suporta <strong>múltiplos titulares de saúde</strong> e{' '}
+                Agora o SeviSaúde suporta <strong>múltiplos titulares de saúde</strong> e{' '}
                 <strong>convite a familiares ou cuidadores</strong> com permissões granulares.
               </p>
             </div>
@@ -354,7 +355,7 @@ export default function OnboardingModal({ onClose }: OnboardingModalProps) {
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold transition shadow"
               >
                 <Check className="w-4 h-4" />
-                <span>Começar a usar o VerdeVida</span>
+                <span>Começar a usar o SeviSaúde</span>
               </button>
             </div>
           </div>

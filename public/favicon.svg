@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- Forma Esquerda -->
+    <g id="sevi-left">
+      <rect x="27.5" y="-3" width="20" height="56" rx="10" transform="rotate(45 27.5 -3)" />
+      <rect x="48" y="37" width="20" height="56" rx="10" transform="rotate(-45 48 37)" />
+    </g>
+    <!-- Forma Direita -->
+    <g id="sevi-right">
+      <rect x="53.5" y="-3" width="20" height="56" rx="10" transform="rotate(45 53.5 -3)" />
+      <rect x="74" y="37" width="20" height="56" rx="10" transform="rotate(-45 74 37)" />
+    </g>
+    <clipPath id="sevi-clip">
+      <use href="#sevi-left" />
+    </clipPath>
+  </defs>
+
+  <!-- Forma Esquerda: Verde vibrante -->
+  <use href="#sevi-left" fill="#40916C" />
+
+  <!-- Forma Direita: Verde escuro floresta -->
+  <use href="#sevi-right" fill="#1B4332" />
+
+  <!-- Interseção / Sobreposição: Tom médio harmônico -->
+  <g clip-path="url(#sevi-clip)">
+    <use href="#sevi-right" fill="#2D6A4F" />
+  </g>
+</svg>

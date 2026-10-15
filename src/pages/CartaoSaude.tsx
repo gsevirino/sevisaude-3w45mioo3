@@ -9,7 +9,6 @@ import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import {
   CreditCard,
   Printer,
-  Heart,
   Clock,
   ShieldCheck,
   AlertTriangle,
@@ -24,6 +23,7 @@ import {
   Activity,
   Layers,
 } from 'lucide-react'
+import { SeviSaudeIcon } from '@/components/SeviSaudeLogo'
 
 export default function CartaoSaude() {
   const { user } = useAuth()
@@ -238,14 +238,19 @@ export default function CartaoSaude() {
               <div>
                 <div className="flex items-center justify-between border-b border-white/15 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#4C7A5A] flex items-center justify-center">
-                      <Heart className="w-4 h-4 text-white" />
+                    <div className="w-7 h-7 rounded-lg bg-[#4C7A5A] flex items-center justify-center p-1">
+                      <SeviSaudeIcon size={18} variant="light" />
                     </div>
                     <div>
-                      <span className="font-serif italic text-base font-bold tracking-wide">
-                        VerdeVida
-                      </span>
-                      <span className="block text-[8px] uppercase tracking-widest text-[#DCE9D4]">
+                      <div className="flex items-baseline gap-0.5 leading-none">
+                        <span className="font-serif italic text-base font-bold tracking-wide text-white">
+                          Sevi
+                        </span>
+                        <span className="font-serif italic text-base font-bold tracking-wide text-[#74C69D]">
+                          Saúde
+                        </span>
+                      </div>
+                      <span className="block text-[8px] uppercase tracking-widest text-[#DCE9D4] mt-0.5">
                         Cartão de Emergência
                       </span>
                     </div>
@@ -261,7 +266,7 @@ export default function CartaoSaude() {
                     Titular do Prontuário
                   </span>
                   <h3 className="font-serif italic text-xl font-bold text-white tracking-wide">
-                    {activeProfile?.nome || user?.name || 'Paciente VerdeVida'}
+                    {activeProfile?.nome || user?.name || 'Paciente SeviSaúde'}
                   </h3>
                   {(activeProfile?.data_nascimento || user?.meta?.dataNascimento) && (
                     <span className="text-[10px] text-white/80">
@@ -387,7 +392,7 @@ export default function CartaoSaude() {
                 </p>
                 <div className="flex items-center justify-between">
                   <span>Atualizado em: {currentDate}</span>
-                  <span>VerdeVida Prontuário Pessoal</span>
+                  <span>SeviSaúde Prontuário Pessoal</span>
                 </div>
               </div>
             </div>
@@ -397,12 +402,12 @@ export default function CartaoSaude() {
           <div className="bg-white rounded-3xl p-8 md:p-10 border-2 border-[#D9E2D4] shadow-md max-w-2xl mx-auto space-y-6">
             <div className="flex items-center justify-between border-b-2 border-[#D9E2D4] pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#4C7A5A] text-white flex items-center justify-center">
-                  <Heart className="w-6 h-6" />
+                <div className="w-10 h-10 rounded-2xl bg-[#4C7A5A] text-white flex items-center justify-center p-1.5">
+                  <SeviSaudeIcon size={24} variant="light" />
                 </div>
                 <div>
                   <h2 className="font-serif italic text-2xl font-bold text-[#26362B]">
-                    VerdeVida — Cartão Clínico do Paciente
+                    SeviSaúde — Cartão Clínico do Paciente
                   </h2>
                   <p className="text-xs text-[#6B7A6F]">Prontuário Pessoal e Ficha de Emergência</p>
                 </div>

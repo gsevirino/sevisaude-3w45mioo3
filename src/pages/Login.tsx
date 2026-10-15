@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { Leaf, HeartPulse, ArrowRight, Loader2, Sparkles } from 'lucide-react'
+import { HeartPulse, ArrowRight, Loader2, Sparkles } from 'lucide-react'
+import SeviSaudeLogo from '@/components/SeviSaudeLogo'
 import { toast } from '@/hooks/use-toast'
 
 export default function Login() {
@@ -59,13 +60,13 @@ export default function Login() {
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#4C7A5A] text-white shadow-lg mb-4 ring-8 ring-[#DCE9D4]/60">
-            <Leaf className="w-8 h-8" />
-          </div>
-          <h1 className="font-serif italic text-3xl md:text-4xl text-[#26362B] font-semibold tracking-tight">
-            VerdeVida
-          </h1>
-          <p className="text-[#6B7A6F] mt-2 text-sm font-sans">
+          <SeviSaudeLogo
+            layout="vertical"
+            size={52}
+            showSlogan
+            sloganText="Sua jornada de saúde, conectada."
+          />
+          <p className="text-[#6B7A6F] mt-2 text-xs font-sans">
             Seu prontuário particular • Cuide da sua saúde com carinho e clareza
           </p>
         </div>
@@ -160,10 +161,13 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-[#6B7A6F] mt-8 flex items-center justify-center gap-1.5">
-          <HeartPulse className="w-3.5 h-3.5 text-[#4C7A5A]" />
-          <span>Privacidade total: seus dados de saúde pertencem apenas a você.</span>
-        </p>
+        <div className="text-center text-xs text-[#6B7A6F] mt-8 space-y-1">
+          <p className="flex items-center justify-center gap-1.5">
+            <HeartPulse className="w-3.5 h-3.5 text-[#4C7A5A]" />
+            <span>Privacidade total: seus dados de saúde pertencem apenas a você.</span>
+          </p>
+          <p className="text-[11px] text-[#6B7A6F]/70">sevisaude.com.br</p>
+        </div>
       </div>
     </div>
   )

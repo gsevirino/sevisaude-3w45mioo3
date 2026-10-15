@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { Leaf, ArrowLeft, Send, Loader2, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, CheckCircle2 } from 'lucide-react'
+import SeviSaudeLogo from '@/components/SeviSaudeLogo'
 import { toast } from '@/hooks/use-toast'
 
 export default function ForgotPassword() {
@@ -37,13 +38,16 @@ export default function ForgotPassword() {
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#DCE9D4]/60 blob-organic blur-2xl pointer-events-none" />
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#4C7A5A] text-white shadow-lg mb-4 ring-8 ring-[#DCE9D4]/60">
-            <Leaf className="w-8 h-8" />
-          </div>
-          <h1 className="font-serif italic text-3xl text-[#26362B] font-semibold tracking-tight">
+          <SeviSaudeLogo
+            layout="vertical"
+            size={48}
+            showSlogan
+            sloganText="Sua jornada de saúde, conectada."
+          />
+          <h1 className="font-serif italic text-2xl md:text-3xl text-[#26362B] font-semibold tracking-tight mt-3">
             Recuperar senha
           </h1>
-          <p className="text-[#6B7A6F] mt-2 text-sm font-sans">
+          <p className="text-[#6B7A6F] mt-1.5 text-xs font-sans">
             Enviaremos as instruções de redefinição para sua caixa de entrada
           </p>
         </div>

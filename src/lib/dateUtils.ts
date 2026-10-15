@@ -1,7 +1,7 @@
 /**
  * Utilitários centrais de formatação de datas e horários para o padrão pt-BR.
  *
- * Padrão do app VerdeVida:
+ * Padrão do app SeviSaúde:
  * - Datas: DD/MM/AAAA
  * - Horários: HH:mm (24h)
  * - Data e hora: DD/MM/AAAA às HH:mm (ou customizado)
