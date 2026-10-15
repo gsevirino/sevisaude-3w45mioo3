@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 260" width="100%" height="100%" fill="none" role="img" aria-label="Logo SeviSaúde Vertical com Slogan">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&amp;family=Lora:ital,wght@1,600;1,700&amp;display=swap');
+      .brand-title {
+        font-family: 'Lora', 'Georgia', serif;
+        font-style: italic;
+        text-anchor: middle;
+      }
+      .brand-sevi {
+        font-weight: 600;
+        fill: #26362B;
+      }
+      .brand-saude {
+        font-weight: 700;
+        fill: #4C7A5A;
+      }
+      .brand-slogan {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-size: 13.5px;
+        font-weight: 400;
+        fill: #6B7A6F;
+        text-anchor: middle;
+        letter-spacing: -0.2px;
+      }
+    </style>
+    <!-- Pílula central a 45° -->
+    <rect
+      id="sevi-v-center"
+      x="35"
+      y="16"
+      width="18"
+      height="64"
+      rx="9"
+      transform="rotate(45 35 16)"
+    />
+    <!-- Pílula direita a -45° -->
+    <rect
+      id="sevi-v-right"
+      x="68"
+      y="42"
+      width="18"
+      height="42"
+      rx="9"
+      transform="rotate(-45 68 42)"
+    />
+    <clipPath id="sevi-v-clip">
+      <use href="#sevi-v-center" />
+    </clipPath>
+  </defs>
+
+  <!-- Fundo suave arredondado idêntico ao componente vertical -->
+  <rect x="110" y="10" width="120" height="120" rx="32" fill="#E7F0E3" fill-opacity="0.8" stroke="#DCE9D4" stroke-width="2" />
+
+  <!-- Símbolo da marca centralizado dentro do fundo suave -->
+  <g id="brand-symbol" transform="translate(120, 20)">
+    <!-- 1. Pílula superior esquerda -->
+    <rect
+      x="21"
+      y="30"
+      width="18"
+      height="38"
+      rx="9"
+      transform="rotate(45 21 30)"
+      fill="#40916C"
+    />
+    <!-- 2. Pílula central longa -->
+    <use href="#sevi-v-center" fill="#40916C" />
+    <!-- 3. Pílula direita -->
+    <use href="#sevi-v-right" fill="#1B4332" />
+    <!-- 4. Sobreposição com tom intermediário -->
+    <g clip-path="url(#sevi-v-clip)">
+      <use href="#sevi-v-right" fill="#2D6A4F" />
+    </g>
+  </g>
+
+  <!-- Wordmark "SeviSaúde" centralizado -->
+  <text x="170" y="185" class="brand-title" font-size="46" letter-spacing="-1">
+    <tspan class="brand-sevi">Sevi</tspan><tspan class="brand-saude">Saúde</tspan>
+  </text>
+
+  <!-- Slogan oficial -->
+  <text x="170" y="218" class="brand-slogan">
+    Sua jornada de saúde, conectada.
+  </text>
+</svg>

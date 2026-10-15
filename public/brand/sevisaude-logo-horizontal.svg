@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 120" width="100%" height="100%" fill="none" role="img" aria-label="Logo SeviSaúde Horizontal">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@1,600;1,700&amp;display=swap');
+      .brand-wordmark {
+        font-family: 'Lora', 'Georgia', serif;
+        font-style: italic;
+      }
+      .brand-sevi {
+        font-weight: 600;
+        fill: #26362B;
+      }
+      .brand-saude {
+        font-weight: 700;
+        fill: #4C7A5A;
+      }
+    </style>
+    <!-- Contêiner do símbolo: pílula central a 45° -->
+    <rect
+      id="sevi-h-center"
+      x="35"
+      y="16"
+      width="18"
+      height="64"
+      rx="9"
+      transform="rotate(45 35 16)"
+    />
+    <!-- Pílula direita a -45° -->
+    <rect
+      id="sevi-h-right"
+      x="68"
+      y="42"
+      width="18"
+      height="42"
+      rx="9"
+      transform="rotate(-45 68 42)"
+    />
+    <clipPath id="sevi-h-clip">
+      <use href="#sevi-h-center" />
+    </clipPath>
+  </defs>
+
+  <!-- Símbolo da marca (escala 100x100 alinhado verticalmente) -->
+  <g id="brand-symbol" transform="translate(10, 10)">
+    <!-- 1. Pílula superior esquerda -->
+    <rect
+      x="21"
+      y="30"
+      width="18"
+      height="38"
+      rx="9"
+      transform="rotate(45 21 30)"
+      fill="#40916C"
+    />
+    <!-- 2. Pílula central longa -->
+    <use href="#sevi-h-center" fill="#40916C" />
+    <!-- 3. Pílula direita -->
+    <use href="#sevi-h-right" fill="#1B4332" />
+    <!-- 4. Sobreposição com tom intermediário -->
+    <g clip-path="url(#sevi-h-clip)">
+      <use href="#sevi-h-right" fill="#2D6A4F" />
+    </g>
+  </g>
+
+  <!-- Wordmark "SeviSaúde" -->
+  <g id="brand-wordmark" transform="translate(126, 75)">
+    <text class="brand-wordmark" font-size="54" letter-spacing="-1">
+      <tspan class="brand-sevi">Sevi</tspan><tspan class="brand-saude">Saúde</tspan>
+    </text>
+  </g>
+</svg>

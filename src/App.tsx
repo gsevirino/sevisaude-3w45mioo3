@@ -15,6 +15,7 @@ import ForgotPassword from '@/pages/ForgotPassword'
 import ResetPassword from '@/pages/ResetPassword'
 import VerifyEmail from '@/pages/VerifyEmail'
 import ConfirmEmailChange from '@/pages/ConfirmEmailChange'
+import Marca from '@/pages/Marca'
 
 // Protected Health Pages
 import Index from '@/pages/Index'
@@ -44,6 +45,10 @@ const App = () => (
               <Route path="/redefinir-senha" element={<ResetPassword />} />
               <Route path="/verificar-email" element={<VerifyEmail />} />
               <Route path="/confirmar-email" element={<ConfirmEmailChange />} />
+
+              {/* Public Brand Routes (sem autenticação) */}
+              <Route path="/marca" element={<Marca />} />
+              <Route path="/brand" element={<Navigate to="/marca" replace />} />
 
               {/* Protected Routes inside Layout */}
               <Route
