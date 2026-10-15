@@ -17,6 +17,9 @@ import type {
   Medicamento,
   Exame,
 } from '@/types/health'
+import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -51,6 +54,8 @@ const STATUS_FILTERS: (StatusConsulta | 'Todas')[] = ['Todas', 'Agendada', 'Real
 const TIPOS: TipoConsulta[] = ['Presencial', 'Teleconsulta', 'Domiciliar']
 
 export default function Consultas() {
+  const { user } = useAuth()
+  const { activeProfile, isOwner, permissions } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [consultas, setConsultas] = useState<Consulta[]>([])
   const [medicos, setMedicos] = useState<Medico[]>([])
@@ -107,12 +112,13 @@ export default function Consultas() {
   const [consultaToDelete, setConsultaToDelete] = useState<Consulta | null>(null)
 
   const loadData = useCallback(async () => {
+    const profId = activeProfile?.id
     try {
       const [cons, docs, meds, exs] = await Promise.all([
-        getConsultas(),
-        getMedicos(),
-        getMedicamentos(),
-        getExames(),
+        getConsultas(profId),
+        getMedicos(profId),
+        getMedicamentos(profId),
+        getExames(profId),
       ])
       setConsultas(cons)
       setMedicos(docs)
@@ -128,7 +134,7 @@ export default function Consultas() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeProfile?.id])
 
   useEffect(() => {
     loadData()
@@ -266,10 +272,10 @@ export default function Consultas() {
           description: 'Registro do atendimento e anotações pós-consulta gravados com sucesso.',
         })
       } else {
-        await createConsulta(formData)
+        await createConsulta(formData, activeProfile?.id)
         toast({
           title: 'Consulta agendada/cadastrada!',
-          description: 'A consulta foi salva no seu prontuário.',
+          description: `A consulta foi salva no prontuário de ${activeProfile?.nome || 'Titular'}.`,
         })
       }
       setFormOpen(false)
@@ -355,14 +361,22 @@ export default function Consultas() {
           </p>
         </div>
 
-        <button
-          onClick={openNewForm}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nova consulta</span>
-        </button>
+        {permissions.consultas_editar ? (
+          <button
+            onClick={openNewForm}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nova consulta</span>
+          </button>
+        ) : (
+          <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
+            Modo Somente Leitura
+          </span>
+        )}
       </div>
+
+      <ProfileContextBadge actionLabel="Consultas médicas de" />
 
       {/* Filters & Search Row */}
       <div className="bg-white rounded-3xl p-4 md:p-5 border border-[#D9E2D4] shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">

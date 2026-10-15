@@ -16,6 +16,9 @@ import type {
   StatusExame,
   HistoricoStatusExame,
 } from '@/types/health'
+import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -78,6 +81,8 @@ const CATEGORIAS_SUGERIDAS = [
 ]
 
 export default function Exames() {
+  const { user } = useAuth()
+  const { activeProfile, isOwner, permissions } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [exames, setExames] = useState<Exame[]>([])
   const [medicos, setMedicos] = useState<Medico[]>([])
@@ -135,8 +140,13 @@ export default function Exames() {
   const [exameToDelete, setExameToDelete] = useState<Exame | null>(null)
 
   const loadData = useCallback(async () => {
+    const profId = activeProfile?.id
     try {
-      const [exs, docs, cons] = await Promise.all([getExames(), getMedicos(), getConsultas()])
+      const [exs, docs, cons] = await Promise.all([
+        getExames(profId),
+        getMedicos(profId),
+        getConsultas(profId),
+      ])
       setExames(exs)
       setMedicos(docs)
       setConsultas(cons)
@@ -150,7 +160,7 @@ export default function Exames() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeProfile?.id])
 
   useEffect(() => {
     loadData()
@@ -275,10 +285,10 @@ export default function Exames() {
         ]
         formData.append('historico_status', JSON.stringify(historicoInicial))
 
-        await createExame(formData)
+        await createExame(formData, activeProfile?.id)
         toast({
           title: 'Exame registrado!',
-          description: `${nome} foi adicionado com sucesso.`,
+          description: `${nome} foi adicionado ao prontuário de ${activeProfile?.nome || 'Titular'}.`,
         })
       }
       setFormOpen(false)
@@ -458,14 +468,22 @@ export default function Exames() {
           </p>
         </div>
 
-        <button
-          onClick={openNewForm}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo exame</span>
-        </button>
+        {permissions.exames_editar ? (
+          <button
+            onClick={openNewForm}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo exame</span>
+          </button>
+        ) : (
+          <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
+            Modo Somente Leitura
+          </span>
+        )}
       </div>
+
+      <ProfileContextBadge actionLabel="Exames e laudos de" />
 
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm space-y-4">

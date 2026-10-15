@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getMedicos, createMedico, updateMedico, deleteMedico } from '@/services/healthService'
 import type { Medico } from '@/types/health'
+import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -18,6 +21,8 @@ import {
 import { toast } from '@/hooks/use-toast'
 
 export default function Medicos() {
+  const { user } = useAuth()
+  const { activeProfile, isOwner, permissions } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [medicos, setMedicos] = useState<Medico[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,25 +47,25 @@ export default function Medicos() {
   const [medicoToDelete, setMedicoToDelete] = useState<Medico | null>(null)
 
   const loadData = useCallback(async () => {
+    const profId = activeProfile?.id
     try {
-      const data = await getMedicos()
+      const data = await getMedicos(profId)
       setMedicos(data)
     } catch (err) {
       console.error(err)
       toast({
         title: 'Erro ao carregar profissionais',
-        description: 'Tente novamente.',
+        description: 'Tente novamente mais tarde.',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeProfile?.id])
 
   useEffect(() => {
     loadData()
   }, [loadData, refreshKey])
-
   const openNewForm = () => {
     setEditingMedico(null)
     setNome('')
@@ -110,14 +115,17 @@ export default function Medicos() {
           description: 'Dados salvos com sucesso.',
         })
       } else {
-        await createMedico({
-          nome: nome.trim(),
-          especialidade: especialidade.trim(),
-          crm: crm.trim() || undefined,
-          telefone: telefone.trim() || undefined,
-          email: email.trim() || undefined,
-          observacoes: observacoes.trim() || undefined,
-        })
+        await createMedico(
+          {
+            nome: nome.trim(),
+            especialidade: especialidade.trim(),
+            crm: crm.trim(),
+            telefone: telefone.trim(),
+            email: email.trim(),
+            observacoes: observacoes.trim(),
+          },
+          activeProfile?.id,
+        )
         toast({
           title: 'Profissional cadastrado!',
           description: `${nome} foi adicionado à sua equipe médica.`,
@@ -176,14 +184,22 @@ export default function Medicos() {
           </p>
         </div>
 
-        <button
-          onClick={openNewForm}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo profissional</span>
-        </button>
+        {permissions.medicos_editar ? (
+          <button
+            onClick={openNewForm}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo profissional</span>
+          </button>
+        ) : (
+          <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
+            Modo Somente Leitura
+          </span>
+        )}
       </div>
+
+      <ProfileContextBadge actionLabel="Corpo clínico vinculado a" />
 
       {/* Grid of Cards */}
       {loading ? (

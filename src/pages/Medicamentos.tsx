@@ -16,6 +16,9 @@ import type {
   TipoUsoMedicamento,
   AlteracaoMedicamento,
 } from '@/types/health'
+import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -84,6 +87,8 @@ const VIAS_ADMINISTRACAO = [
 ]
 
 export default function Medicamentos() {
+  const { user } = useAuth()
+  const { activeProfile, isOwner, permissions } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [medicamentos, setMedicamentos] = useState<Medicamento[]>([])
   const [medicos, setMedicos] = useState<Medico[]>([])
@@ -148,8 +153,9 @@ export default function Medicamentos() {
   const [loadingHistory, setLoadingHistory] = useState<Record<string, boolean>>({})
 
   const loadData = useCallback(async () => {
+    const profId = activeProfile?.id
     try {
-      const [meds, docs] = await Promise.all([getMedicamentos(), getMedicos()])
+      const [meds, docs] = await Promise.all([getMedicamentos(profId), getMedicos(profId)])
       setMedicamentos(meds)
       setMedicos(docs)
     } catch (err) {
@@ -162,7 +168,7 @@ export default function Medicamentos() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeProfile?.id])
 
   useEffect(() => {
     loadData()
@@ -302,10 +308,10 @@ export default function Medicamentos() {
       // Direct create
       setSaving(true)
       try {
-        await createMedicamento(formData)
+        await createMedicamento(formData, activeProfile?.id)
         toast({
           title: 'Medicamento cadastrado!',
-          description: `${nome} foi incluído ao seu prontuário com sucesso.`,
+          description: `${nome} foi incluído ao prontuário de ${activeProfile?.nome || 'Titular'} com sucesso.`,
         })
         setFormOpen(false)
         triggerRefresh()
@@ -350,12 +356,17 @@ export default function Medicamentos() {
     setSaving(true)
     try {
       if (pendingAction.type === 'submit_edit' && editingMed) {
-        await updateMedicamento(editingMed.id, pendingAction.formData, {
-          campo_alterado: auditFieldLabel,
-          valor_anterior: auditOldValue,
-          novo_valor: auditNewValue,
-          motivo: auditReason.trim(),
-        })
+        await updateMedicamento(
+          editingMed.id,
+          pendingAction.formData,
+          {
+            campo_alterado: auditFieldLabel,
+            valor_anterior: auditOldValue,
+            novo_valor: auditNewValue,
+            motivo: auditReason.trim(),
+          },
+          activeProfile?.id,
+        )
         toast({
           title: 'Medicamento atualizado!',
           description: 'Alterações e auditoria imutável gravadas com sucesso.',
@@ -368,12 +379,17 @@ export default function Medicamentos() {
         if (pendingAction.newStatus === 'concluído') {
           payload.data_fim = extrairDataIso(new Date().toISOString())
         }
-        await updateMedicamento(pendingAction.target.id, payload, {
-          campo_alterado: `Status alterado de "${pendingAction.target.status}" para "${pendingAction.newStatus}"`,
-          valor_anterior: pendingAction.target.status,
-          novo_valor: pendingAction.newStatus,
-          motivo: auditReason.trim(),
-        })
+        await updateMedicamento(
+          pendingAction.target.id,
+          payload,
+          {
+            campo_alterado: `Status alterado de "${pendingAction.target.status}" para "${pendingAction.newStatus}"`,
+            valor_anterior: pendingAction.target.status,
+            novo_valor: pendingAction.newStatus,
+            motivo: auditReason.trim(),
+          },
+          activeProfile?.id,
+        )
         toast({
           title: 'Status atualizado!',
           description: `${pendingAction.target.nome} agora está ${pendingAction.newStatus}.`,
@@ -487,14 +503,22 @@ export default function Medicamentos() {
           </p>
         </div>
 
-        <button
-          onClick={openNewForm}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo medicamento</span>
-        </button>
+        {permissions.medicamentos_editar ? (
+          <button
+            onClick={openNewForm}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo medicamento</span>
+          </button>
+        ) : (
+          <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
+            Modo Somente Leitura
+          </span>
+        )}
       </div>
+
+      <ProfileContextBadge actionLabel="Prontuário de medicamentos de" />
 
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-3xl p-4 md:p-5 border border-[#D9E2D4] shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">

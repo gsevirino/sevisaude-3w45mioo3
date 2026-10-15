@@ -17,8 +17,92 @@ export interface User {
     lembreteExames?: boolean
     telefone?: string
     dataNascimento?: string
+    onboardingCompleted?: boolean
     [key: string]: any
   }
+}
+
+export interface HealthProfile {
+  id: string
+  user: string // ID do usuário dono da conta
+  nome: string
+  parentesco?: string // 'titular' | 'filho(a)' | 'pai' | 'mãe' | 'cônjuge' | 'dependente' | etc.
+  data_nascimento?: string
+  tipo_sanguineo?: string
+  alergias?: string
+  condicoes_saude?: string
+  contato_emergencia_nome?: string
+  contato_emergencia_telefone?: string
+  contato_emergencia_parentesco?: string
+  observacoes?: string
+  is_proprio?: boolean
+  created: string
+  updated: string
+}
+
+export interface ProfilePermissions {
+  // Medicamentos
+  medicamentos_ver: boolean
+  medicamentos_editar: boolean
+  // Médicos
+  medicos_ver: boolean
+  medicos_editar: boolean
+  // Consultas
+  consultas_ver: boolean
+  consultas_editar: boolean
+  // Exames
+  exames_ver: boolean
+  exames_editar: boolean
+  // Documentos
+  documentos_ver: boolean
+  documentos_editar: boolean
+  // Calendário
+  calendario_ver: boolean
+  // Cartão de Saúde
+  cartao_ver: boolean
+}
+
+export type GrantStatus = 'pending' | 'accepted' | 'revoked' | 'declined'
+
+export interface ProfileAccessGrant {
+  id: string
+  profile: string
+  expand?: {
+    profile?: HealthProfile
+    grantor?: User
+    grantee_user?: User
+  }
+  grantor: string
+  grantee_user?: string
+  grantee_email: string
+  grantee_nome?: string
+  parentesco?: string
+  status: GrantStatus
+  invite_token?: string
+  permissions: ProfilePermissions
+  created: string
+  updated: string
+}
+
+export type AccessAuditAction =
+  | 'invite_created'
+  | 'invite_accepted'
+  | 'permissions_updated'
+  | 'grant_revoked'
+  | 'invite_declined'
+
+export interface AccessAuditLog {
+  id: string
+  target_profile: string
+  executor_user: string
+  executor_name: string
+  action: AccessAuditAction
+  details?: string
+  grantee_email?: string
+  metadata?: any
+  data_hora: string
+  created: string
+  updated: string
 }
 
 export interface Medico {
@@ -30,6 +114,7 @@ export interface Medico {
   email?: string
   observacoes?: string
   userId: string
+  profile?: string
   created: string
   updated: string
 }
@@ -79,6 +164,7 @@ export interface Medicamento {
   observacoes?: string
   status: StatusMedicamento
   userId: string
+  profile?: string
   created: string
   updated: string
 }
@@ -129,6 +215,7 @@ export interface Consulta {
   medicamentos_relacionados_ids?: string[] | string
   exames_relacionados_ids?: string[] | string
   userId: string
+  profile?: string
   created: string
   updated: string
 }
@@ -178,6 +265,7 @@ export interface Exame {
   resultados_arquivos?: string[]
   historico_status?: HistoricoStatusExame[] | string
   userId: string
+  profile?: string
   created: string
   updated: string
 }
@@ -200,6 +288,7 @@ export interface Documento {
   }
   arquivo: string
   userId: string
+  profile?: string
   created: string
   updated: string
 }

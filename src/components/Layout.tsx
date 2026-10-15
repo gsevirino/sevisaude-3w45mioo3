@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileSelector from '@/components/ProfileSelector'
+import OnboardingModal from '@/components/OnboardingModal'
 import {
   LayoutDashboard,
   Pill,
@@ -38,6 +41,7 @@ const navItems: NavItem[] = [
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const { needsOnboarding, completeOnboarding, activeProfile, isOwner } = useHealthProfile()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
 
@@ -118,15 +122,19 @@ export default function Layout() {
           </div>
         </div>
 
-        <button
-          onClick={() => navigate('/perfil')}
-          className="flex items-center gap-2 p-1 pl-2 rounded-full bg-white/10 hover:bg-white/20 transition text-xs"
-        >
-          <span className="max-w-[120px] truncate">{user?.name?.split(' ')[0] || 'Perfil'}</span>
-          <div className="w-7 h-7 rounded-full bg-[#E7F0E3] text-[#26362B] font-bold flex items-center justify-center text-xs">
-            {userInitials}
+        <div className="flex items-center gap-2">
+          <div className="w-36">
+            <ProfileSelector compact />
           </div>
-        </button>
+          <button
+            onClick={() => navigate('/perfil')}
+            className="flex items-center gap-2 p-1 pl-1.5 rounded-full bg-white/10 hover:bg-white/20 transition text-xs"
+          >
+            <div className="w-7 h-7 rounded-full bg-[#E7F0E3] text-[#26362B] font-bold flex items-center justify-center text-xs">
+              {userInitials}
+            </div>
+          </button>
+        </div>
       </header>
 
       {/* Mobile Drawer Backdrop */}
@@ -197,7 +205,7 @@ export default function Layout() {
         {/* Desktop Fixed Sidebar */}
         <aside className="hidden lg:flex flex-col w-64 bg-gradient-to-b from-[#4C7A5A] to-[#385942] text-white p-5 fixed top-0 bottom-0 left-0 z-30 shadow-xl no-print">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3 pb-6 border-b border-white/15">
+          <div className="flex items-center gap-3 pb-4 border-b border-white/15">
             <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner ring-2 ring-white/10">
               <Sprout className="w-6 h-6 text-white" />
             </div>
@@ -207,6 +215,11 @@ export default function Layout() {
               </span>
               <span className="text-[11px] text-[#DCE9D4] font-light">Prontuário particular</span>
             </div>
+          </div>
+
+          {/* Seletor de Titular de Saúde Ativo */}
+          <div className="pt-3 pb-2">
+            <ProfileSelector />
           </div>
 
           {/* Navigation Links */}
@@ -247,10 +260,13 @@ export default function Layout() {
           {/* Discreet Footer */}
           <footer className="py-6 px-4 text-center border-t border-[#D9E2D4]/60 text-xs text-[#6B7A6F] flex items-center justify-center gap-2 no-print">
             <Leaf className="w-3.5 h-3.5 text-[#4C7A5A]" />
-            <span>VerdeVida — seu prontuário pessoal de saúde</span>
+            <span>VerdeVida — seu prontuário pessoal e familiar de saúde</span>
           </footer>
         </div>
       </div>
+
+      {/* Modal de Onboarding se for primeiro acesso */}
+      {needsOnboarding && <OnboardingModal onClose={completeOnboarding} />}
     </div>
   )
 }

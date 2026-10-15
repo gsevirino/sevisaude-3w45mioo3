@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-14T23:58:46.652Z",
+  "generatedAt": "2026-10-15T20:14:54.445Z",
   "collections": [
     {
       "name": "users",
@@ -84,10 +84,10 @@
       "name": "medicos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && userId = @request.auth.id",
-        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "list": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "view": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "update": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "delete": "@request.auth.id != '' && userId = @request.auth.id"
       },
       "fields": [
@@ -146,21 +146,29 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_medicos_userId ON medicos (userId)",
-        "CREATE INDEX idx_medicos_especialidade ON medicos (especialidade)"
+        "CREATE INDEX idx_medicos_especialidade ON medicos (especialidade)",
+        "CREATE INDEX `idx_medicos_profile` ON `medicos` (profile)"
       ]
     },
     {
       "name": "medicamentos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && userId = @request.auth.id",
-        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "list": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "view": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "update": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "delete": "@request.auth.id != '' && userId = @request.auth.id"
       },
       "fields": [
@@ -321,23 +329,31 @@
           "type": "file",
           "required": false,
           "system": false
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_medicamentos_userId ON medicamentos (userId)",
         "CREATE INDEX idx_medicamentos_status ON medicamentos (status)",
-        "CREATE INDEX idx_medicamentos_data_inicio ON medicamentos (data_inicio)"
+        "CREATE INDEX idx_medicamentos_data_inicio ON medicamentos (data_inicio)",
+        "CREATE INDEX `idx_medicamentos_profile` ON `medicamentos` (profile)"
       ]
     },
     {
       "name": "alteracoes_medicamentos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "view": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "update": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "delete": "@request.auth.id != '' && userId = @request.auth.id"
       },
       "fields": [
         {
@@ -408,20 +424,28 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
         }
       ],
       "indexes": [
-        "CREATE INDEX idx_alteracoes_medicamento ON alteracoes_medicamentos (medicamento)"
+        "CREATE INDEX idx_alteracoes_medicamento ON alteracoes_medicamentos (medicamento)",
+        "CREATE INDEX `idx_alteracoes_medicamentos_profile` ON `alteracoes_medicamentos` (profile)"
       ]
     },
     {
       "name": "consultas",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && userId = @request.auth.id",
-        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "list": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "view": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "update": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "delete": "@request.auth.id != '' && userId = @request.auth.id"
       },
       "fields": [
@@ -573,22 +597,30 @@
           "type": "json",
           "required": false,
           "system": false
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_consultas_userId ON consultas (userId)",
         "CREATE INDEX idx_consultas_data ON consultas (data)",
-        "CREATE INDEX idx_consultas_status ON consultas (status)"
+        "CREATE INDEX idx_consultas_status ON consultas (status)",
+        "CREATE INDEX `idx_consultas_profile` ON `consultas` (profile)"
       ]
     },
     {
       "name": "exames",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && userId = @request.auth.id",
-        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "list": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "view": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "update": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "delete": "@request.auth.id != '' && userId = @request.auth.id"
       },
       "fields": [
@@ -738,23 +770,31 @@
           "type": "json",
           "required": false,
           "system": false
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_exames_userId ON exames (userId)",
         "CREATE INDEX idx_exames_status ON exames (status)",
         "CREATE INDEX idx_exames_data_solicitado ON exames (data_solicitado)",
-        "CREATE INDEX idx_exames_data_realizado ON exames (data_realizado)"
+        "CREATE INDEX idx_exames_data_realizado ON exames (data_realizado)",
+        "CREATE INDEX `idx_exames_profile` ON `exames` (profile)"
       ]
     },
     {
       "name": "documentos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && userId = @request.auth.id",
-        "view": "@request.auth.id != '' && userId = @request.auth.id",
+        "list": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "view": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && userId = @request.auth.id",
+        "update": "@request.auth.id != '' && (userId = @request.auth.id || @collection.profile_access_grants.profile ?= profile && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "delete": "@request.auth.id != '' && userId = @request.auth.id"
       },
       "fields": [
@@ -810,11 +850,304 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_documentos_userId ON documentos (userId)",
-        "CREATE INDEX idx_documentos_categoria ON documentos (categoria)"
+        "CREATE INDEX idx_documentos_categoria ON documentos (categoria)",
+        "CREATE INDEX `idx_documentos_profile` ON `documentos` (profile)"
+      ]
+    },
+    {
+      "name": "health_profiles",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @collection.profile_access_grants.profile ?= id && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @collection.profile_access_grants.profile ?= id && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "parentesco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_nascimento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_sanguineo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alergias",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "condicoes_saude",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contato_emergencia_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contato_emergencia_telefone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contato_emergencia_parentesco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_proprio",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_health_profiles_user ON health_profiles (user)",
+        "CREATE INDEX idx_health_profiles_is_proprio ON health_profiles (is_proprio)"
+      ]
+    },
+    {
+      "name": "profile_access_grants",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (grantor = @request.auth.id || grantee_user = @request.auth.id || grantee_email = @request.auth.email)",
+        "view": "@request.auth.id != '' && (grantor = @request.auth.id || grantee_user = @request.auth.id || grantee_email = @request.auth.email)",
+        "create": "@request.auth.id != '' && grantor = @request.auth.id",
+        "update": "@request.auth.id != '' && (grantor = @request.auth.id || grantee_user = @request.auth.id || grantee_email = @request.auth.email)",
+        "delete": "@request.auth.id != '' && grantor = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "health_profiles"
+        },
+        {
+          "name": "grantor",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "grantee_user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "grantee_email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "grantee_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parentesco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pending", "accepted", "revoked", "declined"]
+        },
+        {
+          "name": "invite_token",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "permissions",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_grants_profile ON profile_access_grants (profile)",
+        "CREATE INDEX idx_grants_grantor ON profile_access_grants (grantor)",
+        "CREATE INDEX idx_grants_grantee_email ON profile_access_grants (grantee_email)",
+        "CREATE INDEX idx_grants_grantee_user ON profile_access_grants (grantee_user)",
+        "CREATE INDEX idx_grants_status ON profile_access_grants (status)"
+      ]
+    },
+    {
+      "name": "access_audit_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (executor_user = @request.auth.id || target_profile.user = @request.auth.id)",
+        "view": "@request.auth.id != '' && (executor_user = @request.auth.id || target_profile.user = @request.auth.id)",
+        "create": "@request.auth.id != ''",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "target_profile",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "health_profiles"
+        },
+        {
+          "name": "executor_user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "executor_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "action",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "invite_created",
+            "invite_accepted",
+            "permissions_updated",
+            "grant_revoked",
+            "invite_declined"
+          ]
+        },
+        {
+          "name": "details",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "grantee_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_hora",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_audit_profile ON access_audit_logs (target_profile)",
+        "CREATE INDEX idx_audit_executor ON access_audit_logs (executor_user)",
+        "CREATE INDEX idx_audit_action ON access_audit_logs (action)"
       ]
     }
   ]

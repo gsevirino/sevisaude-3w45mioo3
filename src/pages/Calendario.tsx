@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { formatarData, formatarHora, extrairDataIso } from '@/lib/dateUtils'
 import { getConsultas, getExames } from '@/services/healthService'
 import type { Consulta, Exame } from '@/types/health'
+import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -33,6 +36,8 @@ interface DayEvent {
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 
 export default function Calendario() {
+  const { user } = useAuth()
+  const { activeProfile, isOwner } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [consultas, setConsultas] = useState<Consulta[]>([])
   const [exames, setExames] = useState<Exame[]>([])
@@ -51,8 +56,9 @@ export default function Calendario() {
   const navigate = useNavigate()
 
   const loadData = useCallback(async () => {
+    const profId = activeProfile?.id
     try {
-      const [cons, exs] = await Promise.all([getConsultas(), getExames()])
+      const [cons, exs] = await Promise.all([getConsultas(profId), getExames(profId)])
       setConsultas(cons)
       setExames(exs)
     } catch (err) {
@@ -60,7 +66,7 @@ export default function Calendario() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeProfile?.id])
 
   useEffect(() => {
     loadData()
@@ -199,10 +205,10 @@ export default function Calendario() {
             Calendário de saúde
           </h1>
           <p className="text-[#6B7A6F] text-sm mt-1">
-            Visão unificada das suas consultas marcadas e datas de exames laboratoriais
+            Visão unificada das consultas agendadas e prazos de exames de{' '}
+            <strong>{activeProfile?.nome || 'Titular'}</strong>
           </p>
         </div>
-
         {/* Month Navigation Controls */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button

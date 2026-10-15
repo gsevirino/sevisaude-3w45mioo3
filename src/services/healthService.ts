@@ -16,17 +16,22 @@ export function getFileUrl(collectionNameOrId: string, recordId: string, filenam
 }
 
 // ==================== MEDICOS ====================
-export async function getMedicos(): Promise<Medico[]> {
+export async function getMedicos(profileId?: string): Promise<Medico[]> {
+  const filter = profileId ? `profile = "${profileId}"` : undefined
   return pb.collection('medicos').getFullList<Medico>({
+    filter,
     sort: 'nome',
   })
 }
 
 export async function createMedico(
   data: Omit<Medico, 'id' | 'created' | 'updated' | 'userId'>,
+  profileId?: string,
 ): Promise<Medico> {
   const userId = pb.authStore.model?.id
-  return pb.collection('medicos').create<Medico>({ ...data, userId })
+  return pb
+    .collection('medicos')
+    .create<Medico>({ ...data, userId, profile: profileId || data.profile })
 }
 
 export async function updateMedico(id: string, data: Partial<Medico>): Promise<Medico> {
@@ -38,8 +43,10 @@ export async function deleteMedico(id: string): Promise<boolean> {
 }
 
 // ==================== MEDICAMENTOS ====================
-export async function getMedicamentos(): Promise<Medicamento[]> {
+export async function getMedicamentos(profileId?: string): Promise<Medicamento[]> {
+  const filter = profileId ? `profile = "${profileId}"` : undefined
   const records = await pb.collection('medicamentos').getFullList<Medicamento>({
+    filter,
     sort: '-created',
     expand: 'medico',
   })
@@ -68,6 +75,7 @@ function normalizeMedicamento(m: Medicamento): Medicamento {
 
 export async function createMedicamento(
   data: FormData | Partial<Medicamento>,
+  profileId?: string,
 ): Promise<Medicamento> {
   const userId = pb.authStore.model?.id
   let created: Medicamento
@@ -76,6 +84,9 @@ export async function createMedicamento(
     if (userId && !data.has('userId')) {
       data.append('userId', userId)
     }
+    if (profileId && !data.has('profile')) {
+      data.append('profile', profileId)
+    }
     created = await pb.collection('medicamentos').create<Medicamento>(data, { expand: 'medico' })
   } else {
     const payload = {
@@ -83,6 +94,7 @@ export async function createMedicamento(
       horarios: Array.isArray(data.horarios) ? data.horarios : [],
       status: data.status || 'em uso',
       userId,
+      profile: profileId || data.profile,
     }
     created = await pb.collection('medicamentos').create<Medicamento>(payload, { expand: 'medico' })
   }
@@ -100,6 +112,7 @@ export async function updateMedicamento(
   id: string,
   data: FormData | Partial<Medicamento>,
   auditLog?: AuditLogPayload | string,
+  profileId?: string,
 ): Promise<Medicamento> {
   let updated: Medicamento
   if (data instanceof FormData) {
@@ -119,6 +132,7 @@ export async function updateMedicamento(
       const userName = pb.authStore.model?.name || pb.authStore.model?.email || 'Usuário'
       const nowIso = new Date().toISOString()
       const nowDate = nowIso.split('T')[0]
+      const profId = profileId || updated.profile
 
       if (typeof auditLog === 'string') {
         if (auditLog.trim().length > 0) {
@@ -130,6 +144,7 @@ export async function updateMedicamento(
             data: nowDate,
             data_hora: nowIso,
             userId,
+            profile: profId,
           })
         }
       } else if (auditLog.motivo && auditLog.motivo.trim().length > 0) {
@@ -143,6 +158,7 @@ export async function updateMedicamento(
           data: nowDate,
           data_hora: nowIso,
           userId,
+          profile: profId,
         })
       }
     } catch (e) {
@@ -167,8 +183,10 @@ export async function getAlteracoesMedicamento(
 }
 
 // ==================== CONSULTAS ====================
-export async function getConsultas(): Promise<Consulta[]> {
+export async function getConsultas(profileId?: string): Promise<Consulta[]> {
+  const filter = profileId ? `profile = "${profileId}"` : undefined
   const records = await pb.collection('consultas').getFullList<Consulta>({
+    filter,
     sort: '-data',
     expand: 'medico',
   })
@@ -217,18 +235,27 @@ function normalizeConsulta(c: Consulta): Consulta {
   }
 }
 
-export async function createConsulta(data: FormData | Partial<Consulta>): Promise<Consulta> {
+export async function createConsulta(
+  data: FormData | Partial<Consulta>,
+  profileId?: string,
+): Promise<Consulta> {
   const userId = pb.authStore.model?.id
   let created: Consulta
   if (data instanceof FormData) {
     if (userId && !data.has('userId')) {
       data.append('userId', userId)
     }
+    if (profileId && !data.has('profile')) {
+      data.append('profile', profileId)
+    }
     created = await pb.collection('consultas').create<Consulta>(data, { expand: 'medico' })
   } else {
     created = await pb
       .collection('consultas')
-      .create<Consulta>({ ...data, userId }, { expand: 'medico' })
+      .create<Consulta>(
+        { ...data, userId, profile: profileId || data.profile },
+        { expand: 'medico' },
+      )
   }
   return normalizeConsulta(created)
 }
@@ -251,8 +278,10 @@ export async function deleteConsulta(id: string): Promise<boolean> {
 }
 
 // ==================== EXAMES ====================
-export async function getExames(): Promise<Exame[]> {
+export async function getExames(profileId?: string): Promise<Exame[]> {
+  const filter = profileId ? `profile = "${profileId}"` : undefined
   const records = await pb.collection('exames').getFullList<Exame>({
+    filter,
     sort: '-data_solicitado',
     expand: 'medico,consulta_relacionada',
   })
@@ -294,12 +323,18 @@ function normalizeExame(e: Exame): Exame {
   }
 }
 
-export async function createExame(formDataOrObj: FormData | Partial<Exame>): Promise<Exame> {
+export async function createExame(
+  formDataOrObj: FormData | Partial<Exame>,
+  profileId?: string,
+): Promise<Exame> {
   const userId = pb.authStore.model?.id
   let created: Exame
   if (formDataOrObj instanceof FormData) {
     if (userId && !formDataOrObj.has('userId')) {
       formDataOrObj.append('userId', userId)
+    }
+    if (profileId && !formDataOrObj.has('profile')) {
+      formDataOrObj.append('profile', profileId)
     }
     created = await pb.collection('exames').create<Exame>(formDataOrObj, {
       expand: 'medico,consulta_relacionada',
@@ -307,7 +342,10 @@ export async function createExame(formDataOrObj: FormData | Partial<Exame>): Pro
   } else {
     created = await pb
       .collection('exames')
-      .create<Exame>({ ...formDataOrObj, userId }, { expand: 'medico,consulta_relacionada' })
+      .create<Exame>(
+        { ...formDataOrObj, userId, profile: profileId || formDataOrObj.profile },
+        { expand: 'medico,consulta_relacionada' },
+      )
   }
   return normalizeExame(created)
 }
@@ -327,17 +365,22 @@ export async function deleteExame(id: string): Promise<boolean> {
 }
 
 // ==================== DOCUMENTOS ====================
-export async function getDocumentos(): Promise<Documento[]> {
+export async function getDocumentos(profileId?: string): Promise<Documento[]> {
+  const filter = profileId ? `profile = "${profileId}"` : undefined
   return pb.collection('documentos').getFullList<Documento>({
+    filter,
     sort: '-created',
     expand: 'exame_ref',
   })
 }
 
-export async function createDocumento(formData: FormData): Promise<Documento> {
+export async function createDocumento(formData: FormData, profileId?: string): Promise<Documento> {
   const userId = pb.authStore.model?.id
   if (userId && !formData.has('userId')) {
     formData.append('userId', userId)
+  }
+  if (profileId && !formData.has('profile')) {
+    formData.append('profile', profileId)
   }
   return pb.collection('documentos').create<Documento>(formData, { expand: 'exame_ref' })
 }

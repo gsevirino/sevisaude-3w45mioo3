@@ -7,6 +7,9 @@ import {
   getFileUrl,
 } from '@/services/healthService'
 import type { Documento, Exame, CategoriaDocumento } from '@/types/health'
+import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -48,6 +51,8 @@ const CATEGORIAS: CategoriaDocumento[] = [
 ]
 
 export default function Documentos() {
+  const { user } = useAuth()
+  const { activeProfile, isOwner, permissions } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [exames, setExames] = useState<Exame[]>([])
@@ -69,8 +74,9 @@ export default function Documentos() {
   const [docToDelete, setDocToDelete] = useState<UnifiedDoc | null>(null)
 
   const loadData = useCallback(async () => {
+    const profId = activeProfile?.id
     try {
-      const [docs, exs] = await Promise.all([getDocumentos(), getExames()])
+      const [docs, exs] = await Promise.all([getDocumentos(profId), getExames(profId)])
       setDocumentos(docs)
       setExames(exs)
     } catch (err) {
@@ -83,7 +89,7 @@ export default function Documentos() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeProfile?.id])
 
   useEffect(() => {
     loadData()
@@ -178,10 +184,10 @@ export default function Documentos() {
       formData.append('categoria', categoria)
       formData.append('arquivo', file)
 
-      await createDocumento(formData)
+      await createDocumento(formData, activeProfile?.id)
       toast({
         title: 'Documento arquivado!',
-        description: `${titulo} foi salvo na sua biblioteca de saúde.`,
+        description: `${titulo} foi salvo na biblioteca de ${activeProfile?.nome || 'Titular'}.`,
       })
       setUploadOpen(false)
       setTitulo('')
@@ -240,19 +246,27 @@ export default function Documentos() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setTitulo('')
-            setCategoria('Receita')
-            setFile(null)
-            setUploadOpen(true)
-          }}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Enviar documento</span>
-        </button>
+        {permissions.documentos_editar ? (
+          <button
+            onClick={() => {
+              setTitulo('')
+              setCategoria('Receita')
+              setFile(null)
+              setUploadOpen(true)
+            }}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Enviar documento</span>
+          </button>
+        ) : (
+          <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
+            Modo Somente Leitura
+          </span>
+        )}
       </div>
+
+      <ProfileContextBadge actionLabel="Biblioteca de documentos de" />
 
       {/* Unified Grid */}
       {loading ? (

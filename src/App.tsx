@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/context/AuthContext'
+import { HealthProfileProvider } from '@/context/HealthProfileContext'
 import { HealthRefreshProvider } from '@/context/HealthRefreshContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import Layout from '@/components/Layout'
@@ -33,40 +34,42 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <HealthRefreshProvider>
-          <Routes>
-            {/* Public Auth Routes */}
-            <Route path="/entrar" element={<Login />} />
-            <Route path="/criar-conta" element={<Signup />} />
-            <Route path="/esqueci-senha" element={<ForgotPassword />} />
-            <Route path="/redefinir-senha" element={<ResetPassword />} />
-            <Route path="/verificar-email" element={<VerifyEmail />} />
-            <Route path="/confirmar-email" element={<ConfirmEmailChange />} />
+        <HealthProfileProvider>
+          <HealthRefreshProvider>
+            <Routes>
+              {/* Public Auth Routes */}
+              <Route path="/entrar" element={<Login />} />
+              <Route path="/criar-conta" element={<Signup />} />
+              <Route path="/esqueci-senha" element={<ForgotPassword />} />
+              <Route path="/redefinir-senha" element={<ResetPassword />} />
+              <Route path="/verificar-email" element={<VerifyEmail />} />
+              <Route path="/confirmar-email" element={<ConfirmEmailChange />} />
 
-            {/* Protected Routes inside Layout */}
-            <Route
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/" element={<Index />} />
-              <Route path="/medicamentos" element={<Medicamentos />} />
-              <Route path="/medicos" element={<Medicos />} />
-              <Route path="/consultas" element={<Consultas />} />
-              <Route path="/exames" element={<Exames />} />
-              <Route path="/calendario" element={<Calendario />} />
-              <Route path="/documentos" element={<Documentos />} />
-              <Route path="/cartao" element={<CartaoSaude />} />
-              <Route path="/perfil" element={<Perfil />} />
-            </Route>
+              {/* Protected Routes inside Layout */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/" element={<Index />} />
+                <Route path="/medicamentos" element={<Medicamentos />} />
+                <Route path="/medicos" element={<Medicos />} />
+                <Route path="/consultas" element={<Consultas />} />
+                <Route path="/exames" element={<Exames />} />
+                <Route path="/calendario" element={<Calendario />} />
+                <Route path="/documentos" element={<Documentos />} />
+                <Route path="/cartao" element={<CartaoSaude />} />
+                <Route path="/perfil" element={<Perfil />} />
+              </Route>
 
-            {/* 404 Catch-All */}
-            <Route path="/404" element={<NotFound />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </HealthRefreshProvider>
+              {/* 404 Catch-All */}
+              <Route path="/404" element={<NotFound />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </HealthRefreshProvider>
+        </HealthProfileProvider>
       </AuthProvider>
     </TooltipProvider>
   </BrowserRouter>

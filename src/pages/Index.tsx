@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
 import { formatarData, formatarHora, formatarDataHora, extrairDataIso } from '@/lib/dateUtils'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getMedicamentos, getConsultas, getExames, getDocumentos } from '@/services/healthService'
@@ -36,6 +38,7 @@ interface TimelineItem {
 
 export default function Index() {
   const { user } = useAuth()
+  const { activeProfile, isOwner, permissions } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
   const [medicamentos, setMedicamentos] = useState<Medicamento[]>([])
   const [consultas, setConsultas] = useState<Consulta[]>([])
@@ -50,12 +53,13 @@ export default function Index() {
   useRealtime('documentos', () => triggerRefresh())
 
   const loadData = useCallback(async () => {
+    const profId = activeProfile?.id
     try {
       const [meds, cons, exs, docs] = await Promise.all([
-        getMedicamentos(),
-        getConsultas(),
-        getExames(),
-        getDocumentos(),
+        getMedicamentos(profId),
+        getConsultas(profId),
+        getExames(profId),
+        getDocumentos(profId),
       ])
       setMedicamentos(meds)
       setConsultas(cons)
@@ -66,7 +70,7 @@ export default function Index() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeProfile?.id])
 
   useEffect(() => {
     loadData()
@@ -199,7 +203,13 @@ export default function Index() {
               Olá, {firstName} 👋
             </h1>
             <p className="text-[#4C7A5A] text-xs font-medium mt-1">{todayFormatted}</p>
-            <p className="text-[#6B7A6F] text-sm mt-0.5">Aqui está o resumo da sua saúde hoje.</p>
+            <p className="text-[#6B7A6F] text-sm mt-0.5">
+              Visualizando dados clínicos de:{' '}
+              <strong className="text-[#26362B]">{activeProfile?.nome || 'Titular'}</strong>
+              {!isOwner && (
+                <span className="text-amber-800 font-medium"> (familiar autorizado)</span>
+              )}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { getMedicamentos } from '@/services/healthService'
 import type { Medicamento } from '@/types/health'
 import { useAuth } from '@/context/AuthContext'
+import { useHealthProfile } from '@/context/HealthProfileContext'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { formatarData } from '@/lib/dateUtils'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import {
@@ -25,6 +27,7 @@ import {
 
 export default function CartaoSaude() {
   const { user } = useAuth()
+  const { activeProfile, isOwner } = useHealthProfile()
   const { refreshKey } = useHealthRefresh()
   const [medicamentos, setMedicamentos] = useState<Medicamento[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,7 +47,8 @@ export default function CartaoSaude() {
   useEffect(() => {
     async function load() {
       try {
-        const meds = await getMedicamentos()
+        const profId = activeProfile?.id
+        const meds = await getMedicamentos(profId)
         // Apenas medicamentos "em uso"
         const emUso = meds.filter((m) => m.status === 'em uso')
         setMedicamentos(emUso)
@@ -57,7 +61,7 @@ export default function CartaoSaude() {
       }
     }
     load()
-  }, [refreshKey])
+  }, [refreshKey, activeProfile?.id])
 
   const toggleMed = (id: string) => {
     setSelectedMeds((prev) =>
@@ -257,11 +261,12 @@ export default function CartaoSaude() {
                     Titular do Prontuário
                   </span>
                   <h3 className="font-serif italic text-xl font-bold text-white tracking-wide">
-                    {user?.name || 'Paciente VerdeVida'}
+                    {activeProfile?.nome || user?.name || 'Paciente VerdeVida'}
                   </h3>
-                  {user?.meta?.dataNascimento && (
+                  {(activeProfile?.data_nascimento || user?.meta?.dataNascimento) && (
                     <span className="text-[10px] text-white/80">
-                      Nasc: {formatarData(user.meta.dataNascimento)}
+                      Nasc:{' '}
+                      {formatarData(activeProfile?.data_nascimento || user?.meta?.dataNascimento)}
                     </span>
                   )}
                 </div>
@@ -274,18 +279,22 @@ export default function CartaoSaude() {
                       Alergias e reações adversas:
                     </span>
                     <p className="text-[10px] text-red-100 font-medium leading-tight mt-0.5">
-                      {user?.alergias || 'Nenhuma alergia conhecida relatada'}
+                      {activeProfile?.alergias ||
+                        user?.alergias ||
+                        'Nenhuma alergia conhecida relatada'}
                     </p>
                   </div>
                 )}
 
                 {/* Condições Clínicas */}
-                {includeCondicoes && user?.condicoes_saude && (
+                {includeCondicoes && (activeProfile?.condicoes_saude || user?.condicoes_saude) && (
                   <div className="mt-2 text-[10px] text-white/90">
                     <span className="text-[9px] font-semibold uppercase tracking-wider text-white/60 block">
                       Condições de saúde:
                     </span>
-                    <p className="leading-tight">{user.condicoes_saude}</p>
+                    <p className="leading-tight">
+                      {activeProfile?.condicoes_saude || user?.condicoes_saude}
+                    </p>
                   </div>
                 )}
               </div>
@@ -296,14 +305,22 @@ export default function CartaoSaude() {
                   <div className="flex items-center gap-1.5">
                     <PhoneCall className="w-3.5 h-3.5 text-[#DCE9D4]" />
                     <span>
-                      Emergência: <strong>{user?.contato_emergencia_nome || 'A definir'}</strong>{' '}
-                      {user?.contato_emergencia_parentesco
-                        ? `(${user.contato_emergencia_parentesco})`
+                      Emergência:{' '}
+                      <strong>
+                        {activeProfile?.contato_emergencia_nome ||
+                          user?.contato_emergencia_nome ||
+                          'A definir'}
+                      </strong>{' '}
+                      {activeProfile?.contato_emergencia_parentesco ||
+                      user?.contato_emergencia_parentesco
+                        ? `(${activeProfile?.contato_emergencia_parentesco || user?.contato_emergencia_parentesco})`
                         : ''}
                     </span>
                   </div>
                   <strong className="text-[#DCE9D4] font-mono">
-                    {user?.contato_emergencia_telefone || '—'}
+                    {activeProfile?.contato_emergencia_telefone ||
+                      user?.contato_emergencia_telefone ||
+                      '—'}
                   </strong>
                 </div>
               )}
@@ -400,13 +417,17 @@ export default function CartaoSaude() {
             <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] text-xs">
               <div>
                 <span className="text-[#6B7A6F] block">Nome do Titular:</span>
-                <strong className="text-sm text-[#26362B]">{user?.name || 'Paciente'}</strong>
+                <strong className="text-sm text-[#26362B]">
+                  {activeProfile?.nome || user?.name || 'Paciente'}
+                </strong>
               </div>
               <div>
                 <span className="text-[#6B7A6F] block">Contato de Emergência:</span>
                 <strong className="text-sm text-[#26362B]">
-                  {user?.contato_emergencia_nome || '—'}{' '}
-                  {user?.contato_emergencia_telefone ? `• ${user.contato_emergencia_telefone}` : ''}
+                  {activeProfile?.contato_emergencia_nome || user?.contato_emergencia_nome || '—'}{' '}
+                  {activeProfile?.contato_emergencia_telefone || user?.contato_emergencia_telefone
+                    ? `• ${activeProfile?.contato_emergencia_telefone || user?.contato_emergencia_telefone}`
+                    : ''}
                 </strong>
               </div>
             </div>
