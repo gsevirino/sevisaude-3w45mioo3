@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { formatarData, formatarHora, extrairDataIso } from '@/lib/dateUtils'
+import { formatarData, formatarHora, formatarDataHora, extrairDataIso } from '@/lib/dateUtils'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getMedicamentos, getConsultas, getExames, getDocumentos } from '@/services/healthService'
@@ -222,24 +222,26 @@ export default function Index() {
       </div>
 
       {/* 4 Stat Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
         {/* Card 1: Medicamentos Ativos */}
         <Link
           to="/medicamentos"
-          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group"
+          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
-              Medicamentos ativos
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-[#DCE9D4]/70 text-[#4C7A5A] flex items-center justify-center group-hover:bg-[#4C7A5A] group-hover:text-white transition">
-              <Pill className="w-4 h-4" />
+          <div>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
+                Medicamentos ativos
+              </span>
+              <div className="w-9 h-9 rounded-2xl bg-[#DCE9D4]/70 text-[#4C7A5A] flex items-center justify-center group-hover:bg-[#4C7A5A] group-hover:text-white transition shrink-0">
+                <Pill className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-serif italic font-bold text-[#26362B]">
+              {loading ? '—' : activeMeds.length}
             </div>
           </div>
-          <div className="text-3xl font-serif italic font-bold text-[#26362B]">
-            {loading ? '—' : activeMeds.length}
-          </div>
-          <p className="text-xs text-[#6B7A6F] mt-1 flex items-center gap-1">
+          <p className="text-xs text-[#6B7A6F] mt-2 flex items-center gap-1">
             <span>
               {activeMeds.length === 1
                 ? '1 em uso contínuo'
@@ -252,47 +254,80 @@ export default function Index() {
         {/* Card 2: Próxima Consulta */}
         <Link
           to="/consultas"
-          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group"
+          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
-              Próxima consulta
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-[#E7F0E3] text-[#4C7A5A] flex items-center justify-center group-hover:bg-[#4C7A5A] group-hover:text-white transition">
-              <CalendarCheck className="w-4 h-4" />
+          <div>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
+                Próxima consulta
+              </span>
+              <div className="w-9 h-9 rounded-2xl bg-[#E7F0E3] text-[#4C7A5A] flex items-center justify-center group-hover:bg-[#4C7A5A] group-hover:text-white transition shrink-0">
+                <CalendarCheck className="w-4 h-4" />
+              </div>
             </div>
+
+            {loading ? (
+              <div className="text-2xl font-serif italic font-semibold text-[#26362B]">—</div>
+            ) : nextConsulta ? (
+              <div className="space-y-1">
+                {/* Data e Hora completas: formato "DD/MM/AAAA às HH:mm" */}
+                <div className="font-serif italic font-semibold text-[#26362B] text-lg sm:text-xl leading-snug break-words">
+                  {formatarDataHora(nextConsulta.data, nextConsulta.horario)}
+                </div>
+
+                {/* Profissional e especialidade / tipo */}
+                <div className="text-xs text-[#6B7A6F] leading-relaxed break-words pt-0.5">
+                  <div className="font-medium text-[#26362B]/90">
+                    {nextConsulta.expand?.medico?.nome || 'Médico'}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[#6B7A6F]">
+                    {nextConsulta.expand?.medico?.especialidade && (
+                      <span>{nextConsulta.expand.medico.especialidade}</span>
+                    )}
+                    {nextConsulta.expand?.medico?.especialidade && nextConsulta.tipo && (
+                      <span className="text-[#A8C3A0]">•</span>
+                    )}
+                    {nextConsulta.tipo && <span>{nextConsulta.tipo}</span>}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="text-lg font-serif italic font-semibold text-[#26362B]">
+                  Nenhuma agendada
+                </div>
+                <p className="text-xs text-[#6B7A6F] mt-1 leading-relaxed">
+                  Mantenha seus check-ups em dia
+                </p>
+              </div>
+            )}
           </div>
-          <div className="text-lg font-serif italic font-semibold text-[#26362B] truncate">
-            {loading
-              ? '—'
-              : nextConsulta
-                ? `${formatDate(nextConsulta.data)} • ${formatarHora(nextConsulta.horario)}`
-                : 'Nenhuma agendada'}
-          </div>
-          <p className="text-xs text-[#6B7A6F] mt-1 truncate">
-            {nextConsulta
-              ? `${nextConsulta.expand?.medico?.nome || 'Médico'} (${nextConsulta.tipo})`
-              : 'Mantenha seus check-ups em dia'}
+
+          <p className="text-xs text-[#4C7A5A] font-medium mt-3 flex items-center gap-1">
+            <span>Ver detalhes da consulta</span>
+            <ChevronRight className="w-3 h-3 text-[#4C7A5A]" />
           </p>
         </Link>
 
         {/* Card 3: Exames Pendentes */}
         <Link
           to="/exames"
-          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group"
+          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
-              Exames pendentes
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-[#5B9A8B]/15 text-[#5B9A8B] flex items-center justify-center group-hover:bg-[#5B9A8B] group-hover:text-white transition">
-              <FileSearch className="w-4 h-4" />
+          <div>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
+                Exames pendentes
+              </span>
+              <div className="w-9 h-9 rounded-2xl bg-[#5B9A8B]/15 text-[#5B9A8B] flex items-center justify-center group-hover:bg-[#5B9A8B] group-hover:text-white transition shrink-0">
+                <FileSearch className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-serif italic font-bold text-[#26362B]">
+              {loading ? '—' : pendingExames.length}
             </div>
           </div>
-          <div className="text-3xl font-serif italic font-bold text-[#26362B]">
-            {loading ? '—' : pendingExames.length}
-          </div>
-          <p className="text-xs text-[#6B7A6F] mt-1 flex items-center gap-1">
+          <p className="text-xs text-[#6B7A6F] mt-2 flex items-center gap-1">
             <span>
               {pendingExames.length === 1
                 ? '1 pedido aguardando'
@@ -305,20 +340,22 @@ export default function Index() {
         {/* Card 4: Documentos */}
         <Link
           to="/documentos"
-          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group"
+          className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-200 group flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
-              Documentos de saúde
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-[#A8C3A0]/30 text-[#4C7A5A] flex items-center justify-center group-hover:bg-[#4C7A5A] group-hover:text-white transition">
-              <FolderOpen className="w-4 h-4" />
+          <div>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <span className="text-xs font-semibold text-[#6B7A6F] uppercase tracking-wider">
+                Documentos de saúde
+              </span>
+              <div className="w-9 h-9 rounded-2xl bg-[#A8C3A0]/30 text-[#4C7A5A] flex items-center justify-center group-hover:bg-[#4C7A5A] group-hover:text-white transition shrink-0">
+                <FolderOpen className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-serif italic font-bold text-[#26362B]">
+              {loading ? '—' : totalAttachments}
             </div>
           </div>
-          <div className="text-3xl font-serif italic font-bold text-[#26362B]">
-            {loading ? '—' : totalAttachments}
-          </div>
-          <p className="text-xs text-[#6B7A6F] mt-1 flex items-center gap-1">
+          <p className="text-xs text-[#6B7A6F] mt-2 flex items-center gap-1">
             <span>Laudos, pedidos e receitas</span>
             <ChevronRight className="w-3 h-3 text-[#4C7A5A]" />
           </p>
