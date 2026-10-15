@@ -57,16 +57,17 @@ export default function Login() {
       <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#A8C3A0]/40 blob-organic-alt blur-2xl pointer-events-none" />
       <div className="absolute top-1/2 -right-16 w-64 h-64 bg-[#5B9A8B]/10 blob-organic blur-xl pointer-events-none" />
 
-      <div className="w-full max-w-md relative z-10">
+      <div className="w-full max-w-md relative z-10 px-2 sm:px-0">
         {/* Brand Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 w-full flex flex-col items-center">
           <SeviSaudeLogo
             layout="vertical"
             size={52}
             showSlogan
             sloganText="Sua jornada de saúde, conectada."
+            className="w-full"
           />
-          <p className="text-[#6B7A6F] mt-2 text-xs font-sans">
+          <p className="text-[#6B7A6F] mt-2 text-xs font-sans max-w-sm px-2 text-center">
             Seu prontuário particular • Cuide da sua saúde com carinho e clareza
           </p>
         </div>

@@ -24,12 +24,13 @@ export function SeviSaudeIcon({
   variant = 'brand',
   ...props
 }: SeviSaudeIconProps) {
-  // Paletas de verdes naturais do app
+  // Paletas de verdes naturais do app conforme solicitado:
+  // Verde esmeralda #40916C, Verde floresta #1B4332, Tom intermediário da sobreposição #2D6A4F
   const colors = {
     brand: {
-      left: '#40916C', // Verde esmeralda fresco/vibrante
-      right: '#1B4332', // Verde floresta profundo
-      overlap: '#2D6A4F', // Tom intermediário rico da sobreposição
+      left: '#40916C', // Verde esmeralda (pílula frontal/esquerda)
+      right: '#1B4332', // Verde floresta profundo (pílula direita)
+      overlap: '#2D6A4F', // Tom intermediário na sobreposição central
     },
     light: {
       left: '#74C69D', // Verde menta luminoso (para fundos escuros)
@@ -44,10 +45,14 @@ export function SeviSaudeIcon({
   }[variant]
 
   const uid = React.useId().replace(/:/g, '')
-  const leftShapeId = `sevi-left-${uid}`
-  const rightShapeId = `sevi-right-${uid}`
+  const centerPillId = `sevi-pill-center-${uid}`
+  const rightPillId = `sevi-pill-right-${uid}`
   const clipId = `sevi-clip-${uid}`
 
+  // Geometria fiel extraída diretamente da imagem original do usuário:
+  // Duas barras diagonais paralelas inclinadas a -45° (descendo da esquerda para a direita)
+  // e uma barra diagonal inclinada a +45° (descendo para a esquerda) conectando o canto direito.
+  // Proporções: espessura de ~18 unidades com cantos totalmente arredondados (rx="9").
   return (
     <svg
       width={size}
@@ -61,37 +66,54 @@ export function SeviSaudeIcon({
       {...props}
     >
       <defs>
-        {/* Forma esquerda (Coração/V arredondado esquerdo, centrado em X ~37) */}
-        <g id={leftShapeId}>
-          {/* Haste esquerda descendo */}
-          <rect x="27.5" y="-3" width="20" height="56" rx="10" transform="rotate(45 27.5 -3)" />
-          {/* Haste direita subindo */}
-          <rect x="48" y="37" width="20" height="56" rx="10" transform="rotate(-45 48 37)" />
-        </g>
+        {/* Pílula central (barra diagonal descendo -45°) */}
+        <rect
+          id={centerPillId}
+          x="35"
+          y="16"
+          width="18"
+          height="64"
+          rx="9"
+          transform="rotate(45 35 16)"
+        />
 
-        {/* Forma direita (Coração/V arredondado direito, centrado em X ~63) */}
-        <g id={rightShapeId}>
-          {/* Haste esquerda descendo */}
-          <rect x="53.5" y="-3" width="20" height="56" rx="10" transform="rotate(45 53.5 -3)" />
-          {/* Haste direita subindo */}
-          <rect x="74" y="37" width="20" height="56" rx="10" transform="rotate(-45 74 37)" />
-        </g>
+        {/* Pílula direita (barra diagonal descendo +45°) */}
+        <rect
+          id={rightPillId}
+          x="68"
+          y="42"
+          width="18"
+          height="42"
+          rx="9"
+          transform="rotate(-45 68 42)"
+        />
 
-        {/* Clip-path da forma esquerda para isolar a área de interseção com a direita */}
+        {/* Clip-path para destacar a interseção harmoniosa */}
         <clipPath id={clipId}>
-          <use href={`#${leftShapeId}`} />
+          <use href={`#${centerPillId}`} />
         </clipPath>
       </defs>
 
-      {/* 1. Forma Esquerda (Verde vibrante) */}
-      <use href={`#${leftShapeId}`} fill={colors.left} />
+      {/* 1. Pílula Superior Esquerda (diagonal paralela menor) */}
+      <rect
+        x="21"
+        y="30"
+        width="18"
+        height="38"
+        rx="9"
+        transform="rotate(45 21 30)"
+        fill={colors.left}
+      />
 
-      {/* 2. Forma Direita (Verde escuro profundo) */}
-      <use href={`#${rightShapeId}`} fill={colors.right} />
+      {/* 2. Pílula Central Longa (diagonal principal) */}
+      <use href={`#${centerPillId}`} fill={colors.left} />
 
-      {/* 3. Área de Sobreposição/Interseção (Verde intermediário) */}
+      {/* 3. Pílula Direita (diagonal oposta formando a conexão) */}
+      <use href={`#${rightPillId}`} fill={colors.right} />
+
+      {/* 4. Sobreposição com tom médio #2D6A4F */}
       <g clipPath={`url(#${clipId})`}>
-        <use href={`#${rightShapeId}`} fill={colors.overlap} />
+        <use href={`#${rightPillId}`} fill={colors.overlap} />
       </g>
     </svg>
   )
@@ -126,14 +148,15 @@ export default function SeviSaudeLogo({
   if (layout === 'vertical') {
     return (
       <div className={`flex flex-col items-center text-center ${className}`}>
+        {/* Contêiner de fundo suave arredondado igual ao da marca na imagem de referência */}
         <div
           className={`p-3.5 rounded-3xl mb-3 flex items-center justify-center shadow-sm transition-transform ${
-            isDark ? 'bg-white/10 ring-1 ring-white/20' : 'bg-[#E7F0E3]/70 ring-4 ring-[#DCE9D4]/40'
+            isDark ? 'bg-white/10 ring-1 ring-white/20' : 'bg-[#E7F0E3]/75 ring-4 ring-[#DCE9D4]/40'
           }`}
         >
           <SeviSaudeIcon size={size} variant={iconVariant} />
         </div>
-        <div className="flex items-baseline gap-0.5">
+        <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
           <span
             className={`font-serif italic font-semibold tracking-tight text-3xl md:text-4xl ${
               isDark ? 'text-white' : 'text-[#26362B]'
@@ -151,7 +174,7 @@ export default function SeviSaudeLogo({
         </div>
         {showSlogan && (
           <p
-            className={`text-xs md:text-sm mt-1.5 font-sans font-normal tracking-wide max-w-xs ${
+            className={`text-xs md:text-sm mt-1.5 font-sans font-normal tracking-normal max-w-sm w-full mx-auto px-2 break-normal text-center whitespace-normal select-none ${
               isDark ? 'text-[#E7F0E3]/85' : 'text-[#6B7A6F]'
             }`}
           >
@@ -175,7 +198,7 @@ export default function SeviSaudeLogo({
         <SeviSaudeIcon size={size} variant={iconVariant} />
       </div>
       <div className="leading-tight">
-        <div className="flex items-baseline gap-0.5">
+        <div className="flex items-baseline gap-0.5 whitespace-nowrap">
           <span
             className={`font-serif italic font-semibold tracking-tight ${
               isDark ? 'text-white' : 'text-[#26362B]'
@@ -193,7 +216,7 @@ export default function SeviSaudeLogo({
         </div>
         {showSlogan && (
           <span
-            className={`block text-[11px] font-sans font-normal tracking-tight ${
+            className={`block text-[11px] font-sans font-normal tracking-tight whitespace-nowrap ${
               isDark ? 'text-[#DCE9D4]' : 'text-[#6B7A6F]'
             }`}
           >
