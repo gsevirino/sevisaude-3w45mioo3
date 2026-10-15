@@ -14,6 +14,7 @@ import {
   CalendarDays,
   FolderOpen,
   CreditCard,
+  FileDown,
   UserCircle,
   LogOut,
   Menu,
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { label: 'Calendário', path: '/calendario', icon: CalendarDays },
   { label: 'Documentos de saúde', path: '/documentos', icon: FolderOpen },
   { label: 'Meu cartão de saúde', path: '/cartao', icon: CreditCard },
+  { label: 'Exportar histórico', path: '/exportar', icon: FileDown },
 ]
 
 export default function Layout() {

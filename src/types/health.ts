@@ -124,6 +124,7 @@ export type AccessAuditAction =
   | 'permissions_updated'
   | 'grant_revoked'
   | 'invite_declined'
+  | 'exportacao_dados'
 
 export interface AccessAuditLog {
   id: string

@@ -28,6 +28,7 @@ import Medicos from '@/pages/Medicos'
 import Documentos from '@/pages/Documentos'
 import CartaoSaude from '@/pages/CartaoSaude'
 import Calendario from '@/pages/Calendario'
+import Exportar from '@/pages/Exportar'
 import Perfil from '@/pages/Perfil'
 import AdminPage from '@/pages/AdminPage'
 import NotFound from '@/pages/NotFound'
@@ -73,6 +74,7 @@ const App = () => (
                   <Route path="/calendario" element={<Calendario />} />
                   <Route path="/documentos" element={<Documentos />} />
                   <Route path="/cartao" element={<CartaoSaude />} />
+                  <Route path="/exportar" element={<Exportar />} />
                   <Route path="/perfil" element={<Perfil />} />
                   <Route path="/admin" element={<AdminPage />} />
                 </Route>

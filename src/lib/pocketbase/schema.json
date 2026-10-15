@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T23:28:19.404Z",
+  "generatedAt": "2026-10-15T23:34:15.508Z",
   "collections": [
     {
       "name": "users",
@@ -1102,7 +1102,8 @@
             "invite_accepted",
             "permissions_updated",
             "grant_revoked",
-            "invite_declined"
+            "invite_declined",
+            "exportacao_dados"
           ]
         },
         {
