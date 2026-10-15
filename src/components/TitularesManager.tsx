@@ -581,6 +581,16 @@ export default function TitularesManager() {
                             ? 'Ver'
                             : 'Sem acesso'}
                       </span>
+
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          p.notificacoes_ver
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        Lembretes por E-mail: {p.notificacoes_ver ? 'Autorizado' : 'Não autorizado'}
+                      </span>
                     </div>
                   </div>
                 )
@@ -973,6 +983,33 @@ export default function TitularesManager() {
                     </label>
                   </div>
                 </div>
+
+                {/* Notificações e Lembretes por E-mail */}
+                <div className="p-2.5 rounded-xl bg-white border border-[#D9E2D4] space-y-1.5">
+                  <span className="font-semibold text-[#26362B] block flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                    Lembretes por E-mail do Titular
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!invitePermissions.notificacoes_ver}
+                        onChange={(e) =>
+                          setInvitePermissions({
+                            ...invitePermissions,
+                            notificacoes_ver: e.target.checked,
+                          })
+                        }
+                      />
+                      <span>Permitir receber lembretes de consultas e exames do titular</span>
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-[#6B7A6F]">
+                    O familiar só receberá os lembretes se também tiver o e-mail verificado e optar
+                    por recebê-los em suas preferências.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1149,6 +1186,31 @@ export default function TitularesManager() {
                     <span>Anexar / Editar</span>
                   </label>
                 </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#F6F4EF] border border-[#D9E2D4] space-y-1.5">
+                <span className="font-semibold text-[#26362B] block flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                  Lembretes por E-mail do Titular
+                </span>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!editingPermissions.notificacoes_ver}
+                      onChange={(e) =>
+                        setEditingPermissions({
+                          ...editingPermissions,
+                          notificacoes_ver: e.target.checked,
+                        })
+                      }
+                    />
+                    <span>Permitir receber lembretes de consultas e exames do titular</span>
+                  </label>
+                </div>
+                <p className="text-[10px] text-[#6B7A6F]">
+                  O familiar precisa ter e-mail verificado e aceitar nas preferências dele.
+                </p>
               </div>
             </div>
 

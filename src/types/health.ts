@@ -60,6 +60,40 @@ export interface ProfilePermissions {
   calendario_ver: boolean
   // Cartão de Saúde
   cartao_ver: boolean
+  // Notificações e Lembretes por E-mail
+  notificacoes_ver?: boolean
+}
+
+export interface NotificationPreferences {
+  id: string
+  user: string
+  enabled: boolean
+  appointments_enabled: boolean
+  exams_enabled: boolean
+  days_advance: number
+  notify_day_before: boolean
+  notify_same_day: boolean
+  family_opt_in: boolean
+  created: string
+  updated: string
+}
+
+export interface NotificationJob {
+  id: string
+  deduplication_key: string
+  event_type: 'consulta' | 'exame'
+  target_id: string
+  trigger_timing: 'advance' | 'day_before' | 'same_day'
+  scheduled_date: string
+  recipient_email: string
+  recipient_user?: string
+  profile?: string
+  status: 'sent' | 'failed' | 'skipped'
+  subject?: string
+  error_message?: string
+  sent_at?: string
+  created: string
+  updated: string
 }
 
 export type GrantStatus = 'pending' | 'accepted' | 'revoked' | 'declined'

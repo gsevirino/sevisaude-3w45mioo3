@@ -19,6 +19,7 @@ export const DEFAULT_PERMISSIONS_FULL: ProfilePermissions = {
   documentos_editar: true,
   calendario_ver: true,
   cartao_ver: true,
+  notificacoes_ver: true,
 }
 
 export const DEFAULT_PERMISSIONS_READONLY: ProfilePermissions = {
@@ -34,6 +35,7 @@ export const DEFAULT_PERMISSIONS_READONLY: ProfilePermissions = {
   documentos_editar: false,
   calendario_ver: true,
   cartao_ver: true,
+  notificacoes_ver: false,
 }
 
 // ==================== TITULARES (HEALTH PROFILES) ====================

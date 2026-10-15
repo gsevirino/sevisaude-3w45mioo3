@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T20:39:09.715Z",
+  "generatedAt": "2026-10-15T20:57:09.393Z",
   "collections": [
     {
       "name": "users",
@@ -1148,6 +1148,193 @@
         "CREATE INDEX idx_audit_profile ON access_audit_logs (target_profile)",
         "CREATE INDEX idx_audit_executor ON access_audit_logs (executor_user)",
         "CREATE INDEX idx_audit_action ON access_audit_logs (action)"
+      ]
+    },
+    {
+      "name": "notification_preferences",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != '' && user = @request.auth.id",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "appointments_enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "exams_enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "days_advance",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notify_day_before",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notify_same_day",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_opt_in",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_notif_prefs_user ON notification_preferences (user)"]
+    },
+    {
+      "name": "notification_jobs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (recipient_user = @request.auth.id || @request.auth.id = profile.user)",
+        "view": "@request.auth.id != '' && (recipient_user = @request.auth.id || @request.auth.id = profile.user)",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "deduplication_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "event_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["consulta", "exame"]
+        },
+        {
+          "name": "target_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "trigger_timing",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["advance", "day_before", "same_day"]
+        },
+        {
+          "name": "scheduled_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "recipient_email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "recipient_user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["sent", "failed", "skipped"]
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sent_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_notif_jobs_dedup ON notification_jobs (deduplication_key)",
+        "CREATE INDEX idx_notif_jobs_target ON notification_jobs (target_id)",
+        "CREATE INDEX idx_notif_jobs_recipient ON notification_jobs (recipient_email)",
+        "CREATE INDEX idx_notif_jobs_status ON notification_jobs (status)"
       ]
     }
   ]
