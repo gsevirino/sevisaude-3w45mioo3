@@ -154,11 +154,21 @@ export default function Login() {
             </button>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-[#D9E2D4] text-center text-xs text-[#6B7A6F]">
-            Não tem uma conta ainda?{' '}
-            <Link to="/criar-conta" className="text-[#4C7A5A] font-semibold hover:underline">
-              Criar conta gratuita
-            </Link>
+          <div className="mt-6 pt-6 border-t border-[#D9E2D4] text-center text-xs text-[#6B7A6F] space-y-2">
+            <div>
+              Não tem uma conta ainda?{' '}
+              <Link to="/criar-conta" className="text-[#4C7A5A] font-semibold hover:underline">
+                Criar conta gratuita (30 dias grátis)
+              </Link>
+            </div>
+            <div>
+              <Link
+                to="/planos"
+                className="text-[#6B7A6F] hover:text-[#4C7A5A] font-medium underline"
+              >
+                Conheça nossos planos e valores (a partir de R$ 9,90/mês)
+              </Link>
+            </div>
           </div>
         </div>
 

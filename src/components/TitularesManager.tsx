@@ -127,8 +127,9 @@ export default function TitularesManager() {
       })
     } catch (err: any) {
       toast({
-        title: 'Erro ao criar titular',
-        description: err?.message || 'Tente novamente.',
+        title: 'Limite do plano atingido ou erro',
+        description:
+          err?.message || 'Verifique o limite de perfis de saúde do seu plano na aba Meu Plano.',
         variant: 'destructive',
       })
     } finally {

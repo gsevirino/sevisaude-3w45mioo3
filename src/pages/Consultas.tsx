@@ -19,6 +19,7 @@ import type {
 } from '@/types/health'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
+import { useSubscription } from '@/context/SubscriptionContext'
 import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -55,8 +56,9 @@ const TIPOS: TipoConsulta[] = ['Presencial', 'Teleconsulta', 'Domiciliar']
 
 export default function Consultas() {
   const { user } = useAuth()
-  const { activeProfile, isOwner, permissions } = useHealthProfile()
+  const { activeProfile, permissions, isOwner } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
+  const { isReadOnly } = useSubscription()
   const [consultas, setConsultas] = useState<Consulta[]>([])
   const [medicos, setMedicos] = useState<Medico[]>([])
   const [medicamentos, setMedicamentos] = useState<Medicamento[]>([])
@@ -225,6 +227,14 @@ export default function Consultas() {
       return
     }
 
+    if (isReadOnly) {
+      toast({
+        title: 'Assinatura expirada',
+        description: 'Renove seu plano no menu Meu Plano para agendar ou registrar consultas.',
+        variant: 'destructive',
+      })
+      return
+    }
     setSaving(true)
     try {
       const formData = new FormData()
@@ -361,7 +371,7 @@ export default function Consultas() {
           </p>
         </div>
 
-        {permissions.consultas_editar ? (
+        {permissions.consultas_editar && !isReadOnly ? (
           <button
             onClick={openNewForm}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
@@ -371,7 +381,7 @@ export default function Consultas() {
           </button>
         ) : (
           <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
-            Modo Somente Leitura
+            {isReadOnly ? 'Plano Expirado — Somente Leitura' : 'Modo Somente Leitura'}
           </span>
         )}
       </div>

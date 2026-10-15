@@ -3,6 +3,7 @@ import { getMedicos, createMedico, updateMedico, deleteMedico } from '@/services
 import type { Medico } from '@/types/health'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
+import { useSubscription } from '@/context/SubscriptionContext'
 import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -22,8 +23,9 @@ import { toast } from '@/hooks/use-toast'
 
 export default function Medicos() {
   const { user } = useAuth()
-  const { activeProfile, isOwner, permissions } = useHealthProfile()
+  const { activeProfile, permissions, isOwner } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
+  const { isReadOnly } = useSubscription()
   const [medicos, setMedicos] = useState<Medico[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -90,10 +92,19 @@ export default function Medicos() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!nome.trim() || !especialidade.trim()) {
+    if (!nome.trim()) {
       toast({
-        title: 'Campos obrigatórios',
-        description: 'Nome e Especialidade são necessários.',
+        title: 'Nome obrigatório',
+        description: 'Informe o nome do médico ou profissional.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (isReadOnly) {
+      toast({
+        title: 'Assinatura expirada',
+        description: 'Renove seu plano no menu Meu Plano para cadastrar novos profissionais.',
         variant: 'destructive',
       })
       return
@@ -184,7 +195,7 @@ export default function Medicos() {
           </p>
         </div>
 
-        {permissions.medicos_editar ? (
+        {permissions.medicos_editar && !isReadOnly ? (
           <button
             onClick={openNewForm}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
@@ -194,7 +205,7 @@ export default function Medicos() {
           </button>
         ) : (
           <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
-            Modo Somente Leitura
+            {isReadOnly ? 'Plano Expirado — Somente Leitura' : 'Modo Somente Leitura'}
           </span>
         )}
       </div>

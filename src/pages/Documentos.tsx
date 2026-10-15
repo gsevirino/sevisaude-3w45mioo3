@@ -9,6 +9,7 @@ import {
 import type { Documento, Exame, CategoriaDocumento } from '@/types/health'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
+import { useSubscription } from '@/context/SubscriptionContext'
 import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -54,6 +55,7 @@ export default function Documentos() {
   const { user } = useAuth()
   const { activeProfile, isOwner, permissions } = useHealthProfile()
   const { refreshKey, triggerRefresh } = useHealthRefresh()
+  const { isReadOnly } = useSubscription()
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [exames, setExames] = useState<Exame[]>([])
   const [loading, setLoading] = useState(true)
@@ -177,6 +179,15 @@ export default function Documentos() {
       return
     }
 
+    if (isReadOnly) {
+      toast({
+        title: 'Assinatura expirada',
+        description: 'Renove seu plano no menu Meu Plano para enviar novos documentos.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setSaving(true)
     try {
       const formData = new FormData()
@@ -246,7 +257,7 @@ export default function Documentos() {
           </p>
         </div>
 
-        {permissions.documentos_editar ? (
+        {permissions.documentos_editar && !isReadOnly ? (
           <button
             onClick={() => {
               setTitulo('')
@@ -261,7 +272,7 @@ export default function Documentos() {
           </button>
         ) : (
           <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
-            Modo Somente Leitura
+            {isReadOnly ? 'Plano Expirado — Somente Leitura' : 'Modo Somente Leitura'}
           </span>
         )}
       </div>

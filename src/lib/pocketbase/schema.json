@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T20:57:09.393Z",
+  "generatedAt": "2026-10-15T21:07:18.439Z",
   "collections": [
     {
       "name": "users",
@@ -1335,6 +1335,236 @@
         "CREATE INDEX idx_notif_jobs_target ON notification_jobs (target_id)",
         "CREATE INDEX idx_notif_jobs_recipient ON notification_jobs (recipient_email)",
         "CREATE INDEX idx_notif_jobs_status ON notification_jobs (status)"
+      ]
+    },
+    {
+      "name": "app_settings",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'",
+        "update": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'",
+        "delete": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'"
+      },
+      "fields": [
+        {
+          "name": "key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_app_settings_key ON app_settings (key)"]
+    },
+    {
+      "name": "subscriptions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "create": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "update": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "delete": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "plano",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["essencial", "completo", "familia"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["trial", "ativa", "pendente", "cancelada", "expirada"]
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "trial_ends_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_cortesia",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_cortesia_ate",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notas_admin",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_subscriptions_user ON subscriptions (user)",
+        "CREATE INDEX idx_subscriptions_status ON subscriptions (status)",
+        "CREATE INDEX idx_subscriptions_plano ON subscriptions (plano)"
+      ]
+    },
+    {
+      "name": "payments",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "create": "@request.auth.id != '' && user = @request.auth.id",
+        "update": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'",
+        "delete": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "plano",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["essencial", "completo", "familia"]
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["aguardando", "confirmado", "recusado"]
+        },
+        {
+          "name": "referencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "comprovante",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_pagamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_confirmacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "confirmado_por",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notas_recusa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_payments_user ON payments (user)",
+        "CREATE INDEX idx_payments_status ON payments (status)",
+        "CREATE INDEX idx_payments_created ON payments (created)"
       ]
     }
   ]

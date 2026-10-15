@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
+import { useSubscription } from '@/context/SubscriptionContext'
 import ProfileSelector from '@/components/ProfileSelector'
 import OnboardingModal from '@/components/OnboardingModal'
 import {
@@ -17,7 +18,12 @@ import {
   LogOut,
   Menu,
   X,
+  ShieldAlert,
+  AlertTriangle,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import SeviSaudeLogo, { SeviSaudeIcon } from '@/components/SeviSaudeLogo'
 import { toast } from '@/hooks/use-toast'
 
@@ -41,6 +47,8 @@ const navItems: NavItem[] = [
 export default function Layout() {
   const { user, logout } = useAuth()
   const { needsOnboarding, completeOnboarding, activeProfile, isOwner } = useHealthProfile()
+  const { isReadOnly, isExpired, isTrial, isCortesia, currentPlanDef, isAdmin, summary } =
+    useSubscription()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
 
@@ -263,6 +271,61 @@ export default function Layout() {
 
         {/* Page Content */}
         <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
+          {/* Banner de Aviso de Plano Expirado / Modo Somente Leitura */}
+          {isReadOnly && (
+            <div className="bg-amber-600 text-white px-4 py-2.5 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs z-20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-200" />
+                <span>
+                  <strong>Prontuário em modo somente leitura:</strong> Seu plano ou período de teste
+                  expirou. Seus dados estão seguros e exportáveis, mas novos registros e edições
+                  estão bloqueados.
+                </span>
+              </div>
+              <Link
+                to="/perfil?tab=plano"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-amber-900 font-bold hover:bg-amber-100 transition shrink-0 text-[11px]"
+              >
+                <span>Renovar via PIX</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          )}
+
+          {/* Banner discreto para Teste Grátis Ativo */}
+          {isTrial && !isReadOnly && summary?.usage && (
+            <div className="bg-[#E7F0E3] border-b border-[#DCE9D4] text-[#26362B] px-4 py-1.5 flex items-center justify-between text-[11px] z-10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                <span>
+                  Período de teste grátis ativo:{' '}
+                  <strong>{summary.usage.daysRemaining} dias restantes</strong> no plano{' '}
+                  {currentPlanDef.nome}.
+                </span>
+              </div>
+              <Link
+                to="/perfil?tab=plano"
+                className="text-[#4C7A5A] font-semibold hover:underline flex items-center gap-1"
+              >
+                <span>Ver planos</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          )}
+
+          {/* Banner especial para a Dona/Admin se ela desejar atalho rápido */}
+          {isAdmin && (
+            <div className="bg-[#26362B] text-white px-4 py-1 flex items-center justify-between text-[11px] z-10">
+              <div className="flex items-center gap-1.5">
+                <ShieldAlert className="w-3 h-3 text-[#74C69D]" />
+                <span>Painel Administrador SeviSaúde (Dona)</span>
+              </div>
+              <Link to="/admin" className="text-[#74C69D] hover:underline font-semibold">
+                Acessar Gestão de Pagamentos PIX &gt;
+              </Link>
+            </div>
+          )}
+
           <main className="flex-1 p-4 md:p-8 max-w-[1200px] w-full mx-auto">
             <Outlet />
           </main>
@@ -275,6 +338,13 @@ export default function Layout() {
                 <strong>SeviSaúde</strong> — Sua jornada de saúde, conectada.
               </span>
             </div>
+            <span className="hidden sm:inline text-[#D9E2D4]">•</span>
+            <NavLink
+              to="/planos"
+              className="text-[#4C7A5A] hover:underline font-medium hover:text-[#1B4332]"
+            >
+              Planos e Assinatura
+            </NavLink>
             <span className="hidden sm:inline text-[#D9E2D4]">•</span>
             <span className="text-[11px] text-[#6B7A6F]/80">sevisaude.com.br</span>
             <span className="hidden sm:inline text-[#D9E2D4]">•</span>

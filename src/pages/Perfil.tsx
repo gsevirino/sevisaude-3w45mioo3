@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
+import { useSearchParams, Link } from 'react-router-dom'
 import TitularesManager from '@/components/TitularesManager'
+import { MeuPlanoTab } from '@/components/MeuPlanoTab'
 import pb from '@/lib/pocketbase/client'
 import {
   getUserNotificationPreferences,
@@ -9,7 +11,7 @@ import {
   getNotificationJobs,
   triggerProcessReminders,
 } from '@/services/notificationService'
-import type { NotificationPreferences, NotificationJob } from '@/types/health'
+import type { NotificationPreferences, NotificationJob, PlanoKey } from '@/types/health'
 import { formatarDataHora } from '@/lib/dateUtils'
 import {
   User as UserIcon,
@@ -29,14 +31,27 @@ import {
   AlertCircle,
   Play,
   RotateCcw,
+  CreditCard,
+  ShieldAlert,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export default function Perfil() {
   const { user } = useAuth()
   const { activeProfile, refreshProfiles } = useHealthProfile()
-  const [activeTab, setActiveTab] = useState<'perfil' | 'titulares' | 'lembretes' | 'seguranca'>(
-    'perfil',
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const initialTab =
+    (searchParams.get('tab') as 'perfil' | 'plano' | 'titulares' | 'lembretes' | 'seguranca') ||
+    'perfil'
+  const chosenPlanParam = (searchParams.get('escolhido') as PlanoKey) || undefined
+
+  const [activeTab, setActiveTab] = useState<
+    'perfil' | 'plano' | 'titulares' | 'lembretes' | 'seguranca'
+  >(
+    ['perfil', 'plano', 'titulares', 'lembretes', 'seguranca'].includes(initialTab)
+      ? initialTab
+      : 'perfil',
   )
 
   const [name, setName] = useState('')
@@ -222,7 +237,10 @@ export default function Perfil() {
       <div className="flex items-center gap-2 border-b border-[#D9E2D4] pb-2 overflow-x-auto">
         <button
           type="button"
-          onClick={() => setActiveTab('perfil')}
+          onClick={() => {
+            setActiveTab('perfil')
+            setSearchParams({ tab: 'perfil' })
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition cursor-pointer shrink-0 ${
             activeTab === 'perfil'
               ? 'bg-[#4C7A5A] text-white shadow'
@@ -235,7 +253,26 @@ export default function Perfil() {
 
         <button
           type="button"
-          onClick={() => setActiveTab('titulares')}
+          onClick={() => {
+            setActiveTab('plano')
+            setSearchParams({ tab: 'plano' })
+          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition cursor-pointer shrink-0 ${
+            activeTab === 'plano'
+              ? 'bg-[#4C7A5A] text-white shadow'
+              : 'text-[#6B7A6F] hover:bg-[#E7F0E3]/70 hover:text-[#26362B]'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>Meu Plano</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('titulares')
+            setSearchParams({ tab: 'titulares' })
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition cursor-pointer shrink-0 ${
             activeTab === 'titulares'
               ? 'bg-[#4C7A5A] text-white shadow'
@@ -488,6 +525,9 @@ export default function Perfil() {
           </div>
         </form>
       )}
+
+      {/* Tab: Meu Plano e Pagamento PIX */}
+      {activeTab === 'plano' && <MeuPlanoTab initialChosenPlan={chosenPlanParam} />}
 
       {/* Tab 2: Gestão de Titulares, Convites e Permissões Granulares */}
       {activeTab === 'titulares' && <TitularesManager />}

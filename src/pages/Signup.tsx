@@ -165,11 +165,21 @@ export default function Signup() {
             </div>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-[#D9E2D4] text-center text-xs text-[#6B7A6F]">
-            Já tem uma conta?{' '}
-            <Link to="/entrar" className="text-[#4C7A5A] font-semibold hover:underline">
-              Fazer login
-            </Link>
+          <div className="mt-6 pt-6 border-t border-[#D9E2D4] text-center text-xs text-[#6B7A6F] space-y-2">
+            <div>
+              Já tem uma conta?{' '}
+              <Link to="/entrar" className="text-[#4C7A5A] font-semibold hover:underline">
+                Fazer login
+              </Link>
+            </div>
+            <div>
+              <Link
+                to="/planos"
+                className="text-[#6B7A6F] hover:text-[#4C7A5A] font-medium underline"
+              >
+                Ver comparação de planos e preços
+              </Link>
+            </div>
           </div>
         </div>
       </div>

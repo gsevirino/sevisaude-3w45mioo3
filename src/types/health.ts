@@ -326,3 +326,101 @@ export interface Documento {
   created: string
   updated: string
 }
+
+// ==================== ASSINATURAS, PLANOS E COBRANÇA PIX ====================
+
+export type PlanoKey = 'essencial' | 'completo' | 'familia'
+export type SubscriptionStatus = 'trial' | 'ativa' | 'pendente' | 'cancelada' | 'expirada'
+export type PaymentStatus = 'aguardando' | 'confirmado' | 'recusado'
+
+export interface PlanDefinition {
+  id: PlanoKey
+  nome: string
+  preco: string
+  valorMensal: number
+  tagline: string
+  badge?: string // "Recomendado" | "Compartilhado"
+  badgeColor?: string
+  recursos: string[]
+  maxProfiles: number
+  maxStorageMb: number
+  monthlyOcrDocs: number
+  isPopular?: boolean
+}
+
+export interface Subscription {
+  id: string
+  user: string
+  plano: PlanoKey
+  status: SubscriptionStatus
+  data_inicio?: string
+  data_fim?: string
+  trial_ends_at?: string
+  is_cortesia: boolean
+  data_cortesia_ate?: string
+  notas_admin?: string
+  created: string
+  updated: string
+  expand?: {
+    user?: User
+  }
+}
+
+export interface Payment {
+  id: string
+  user: string
+  plano: PlanoKey
+  valor: number
+  status: PaymentStatus
+  referencia?: string
+  comprovante?: string
+  data_pagamento?: string
+  data_confirmacao?: string
+  confirmado_por?: string
+  notas_recusa?: string
+  created: string
+  updated: string
+  expand?: {
+    user?: User
+  }
+}
+
+export interface AppSetting {
+  id: string
+  key: string
+  value: string
+  description?: string
+  created: string
+  updated: string
+}
+
+export interface SubscriptionSummary {
+  subscription: Subscription | null
+  planConfig: {
+    nome: string
+    maxProfiles: number
+    maxStorageBytes: number
+    monthlyOcrLimit: number
+  }
+  subState: {
+    active: boolean
+    status: SubscriptionStatus
+    isCortesia: boolean
+    planKey: PlanoKey
+  }
+  usage: {
+    profileCount: number
+    maxProfiles: number
+    docCount: number
+    estimatedStorageUsedBytes: number
+    maxStorageBytes: number
+    ocrUsedThisMonth: number
+    maxOcrMonthly: number
+    daysRemaining: number
+  }
+  pixConfig: {
+    key: string
+    beneficiary: string
+    configured: boolean
+  }
+}
