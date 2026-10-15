@@ -1,50 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
   <defs>
-    <!-- Pílula diagonal principal (centro) descendo a 45° -->
-    <rect
-      id="sevi-pill-center"
-      x="35"
-      y="16"
-      width="18"
-      height="64"
-      rx="9"
-      transform="rotate(45 35 16)"
-    />
-    <!-- Pílula diagonal direita descendo a -45° -->
-    <rect
-      id="sevi-pill-right"
-      x="68"
-      y="42"
-      width="18"
-      height="42"
-      rx="9"
-      transform="rotate(-45 68 42)"
-    />
-    <!-- Clip de sobreposição -->
-    <clipPath id="sevi-clip">
-      <use href="#sevi-pill-center" />
+    <clipPath id="fav-clip">
+      <rect
+        x="36"
+        y="26"
+        width="22"
+        height="44"
+        rx="11"
+        transform="rotate(-45 36 26)"
+      />
     </clipPath>
   </defs>
 
-  <!-- 1. Pílula superior esquerda (paralela) -->
+  <!-- Cápsula de fundo em sálvia suave -->
   <rect
-    x="21"
-    y="30"
-    width="18"
-    height="38"
-    rx="9"
-    transform="rotate(45 21 30)"
+    x="36"
+    y="26"
+    width="22"
+    height="44"
+    rx="11"
+    transform="rotate(-45 36 26)"
+    fill="#E7F0E3"
+    fill-opacity="0.9"
+  />
+
+  <!-- Coração frontal em verde esmeralda #40916C -->
+  <rect
+    x="53"
+    y="19"
+    width="21"
+    height="42"
+    rx="10.5"
+    transform="rotate(45 53 19)"
+    fill="#40916C"
+  />
+  <rect
+    x="53"
+    y="19"
+    width="21"
+    height="42"
+    rx="10.5"
+    transform="rotate(-45 53 19)"
     fill="#40916C"
   />
 
-  <!-- 2. Pílula central longa -->
-  <use href="#sevi-pill-center" fill="#40916C" />
-
-  <!-- 3. Pílula direita -->
-  <use href="#sevi-pill-right" fill="#1B4332" />
-
-  <!-- 4. Sobreposição com tom médio #2D6A4F -->
-  <g clip-path="url(#sevi-clip)">
-    <use href="#sevi-pill-right" fill="#2D6A4F" />
+  <!-- Sobreposição com tom intermediário harmônico -->
+  <g clip-path="url(#fav-clip)">
+    <rect
+      x="53"
+      y="19"
+      width="21"
+      height="42"
+      rx="10.5"
+      transform="rotate(45 53 19)"
+      fill="#317355"
+      fill-opacity="0.75"
+    />
   </g>
 </svg>

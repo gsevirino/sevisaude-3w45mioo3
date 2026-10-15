@@ -26,33 +26,44 @@ export function SeviSaudeIcon({
 }: SeviSaudeIconProps) {
   // Paletas de verdes naturais do app conforme solicitado:
   // Verde esmeralda #40916C, Verde floresta #1B4332, Tom intermediário da sobreposição #2D6A4F
-  const colors = {
+  // Configuração das cores para cada variante:
+  // - brand: Coração verde esmeralda (#40916C), cápsula de fundo sálvia pálido (#E7F0E3), sobreposição em blend suave
+  // - light: Adaptada para fundos escuros (coração menta luminoso #74C69D, cápsula translúcida suave)
+  // - mono: Monocromático em branco/tons claros
+  const colorScheme = {
     brand: {
-      left: '#40916C', // Verde esmeralda (pílula frontal/esquerda)
-      right: '#1B4332', // Verde floresta profundo (pílula direita)
-      overlap: '#2D6A4F', // Tom intermediário na sobreposição central
+      capsule: '#E7F0E3',
+      capsuleOpacity: 0.85,
+      heart: '#40916C',
+      heartOpacity: 0.96,
+      overlap: '#317355',
     },
     light: {
-      left: '#74C69D', // Verde menta luminoso (para fundos escuros)
-      right: '#E7F0E3', // Off-white esverdeado suave
-      overlap: '#95D5B2', // Intermediário luminoso
+      capsule: '#E7F0E3',
+      capsuleOpacity: 0.35,
+      heart: '#74C69D',
+      heartOpacity: 0.96,
+      overlap: '#95D5B2',
     },
     mono: {
-      left: '#FFFFFF',
-      right: 'rgba(255, 255, 255, 0.65)',
-      overlap: 'rgba(255, 255, 255, 0.85)',
+      capsule: '#FFFFFF',
+      capsuleOpacity: 0.45,
+      heart: '#FFFFFF',
+      heartOpacity: 0.95,
+      overlap: '#E0E0E0',
     },
   }[variant]
 
   const uid = React.useId().replace(/:/g, '')
-  const centerPillId = `sevi-pill-center-${uid}`
-  const rightPillId = `sevi-pill-right-${uid}`
-  const clipId = `sevi-clip-${uid}`
+  const clipId = `sevi-overlap-clip-${uid}`
+  const heartPathId = `sevi-heart-${uid}`
 
-  // Geometria fiel extraída diretamente da imagem original do usuário:
-  // Duas barras diagonais paralelas inclinadas a -45° (descendo da esquerda para a direita)
-  // e uma barra diagonal inclinada a +45° (descendo para a esquerda) conectando o canto direito.
-  // Proporções: espessura de ~18 unidades com cantos totalmente arredondados (rx="9").
+  // Geometria EXATA da imagem de referência:
+  // - Fundo: Cápsula / pílula arredondada inclinada a -45° (de cima-esquerda para baixo-direita).
+  // - Frente: Coração arredondado e volumoso, ligeiramente deslocado para a direita,
+  //   formado pela união de duas cápsulas arredondadas perpendiculares em 45° e -45°.
+  // - Sobreposição: A cápsula de trás e a asa esquerda do coração se cruzam; a zona de interseção
+  //   aparece translúcida com tom intermediário harmônico visível.
   return (
     <svg
       width={size}
@@ -66,54 +77,62 @@ export function SeviSaudeIcon({
       {...props}
     >
       <defs>
-        {/* Pílula central (barra diagonal descendo -45°) */}
-        <rect
-          id={centerPillId}
-          x="35"
-          y="16"
-          width="18"
-          height="64"
-          rx="9"
-          transform="rotate(45 35 16)"
-        />
-
-        {/* Pílula direita (barra diagonal descendo +45°) */}
-        <rect
-          id={rightPillId}
-          x="68"
-          y="42"
-          width="18"
-          height="42"
-          rx="9"
-          transform="rotate(-45 68 42)"
-        />
-
-        {/* Clip-path para destacar a interseção harmoniosa */}
+        {/* Traçado do coração frontal (composto de duas cápsulas em 45° e -45°) */}
         <clipPath id={clipId}>
-          <use href={`#${centerPillId}`} />
+          <rect x="36" y="26" width="22" height="44" rx="11" transform="rotate(-45 36 26)" />
         </clipPath>
       </defs>
 
-      {/* 1. Pílula Superior Esquerda (diagonal paralela menor) */}
+      {/* 1. Cápsula de fundo: sálvia pálido muito claro, inclinada a -45° */}
       <rect
-        x="21"
-        y="30"
-        width="18"
-        height="38"
-        rx="9"
-        transform="rotate(45 21 30)"
-        fill={colors.left}
+        x="36"
+        y="26"
+        width="22"
+        height="44"
+        rx="11"
+        transform="rotate(-45 36 26)"
+        fill={colorScheme.capsule}
+        fillOpacity={colorScheme.capsuleOpacity}
       />
 
-      {/* 2. Pílula Central Longa (diagonal principal) */}
-      <use href={`#${centerPillId}`} fill={colors.left} />
+      {/* 2. Coração principal frontal: verde esmeralda */}
+      {/* Asa esquerda do coração (inclinada descendo para a direita, 45°) */}
+      <rect
+        id={heartPathId}
+        x="53"
+        y="19"
+        width="21"
+        height="42"
+        rx="10.5"
+        transform="rotate(45 53 19)"
+        fill={colorScheme.heart}
+        fillOpacity={colorScheme.heartOpacity}
+      />
 
-      {/* 3. Pílula Direita (diagonal oposta formando a conexão) */}
-      <use href={`#${rightPillId}`} fill={colors.right} />
+      {/* Asa direita do coração (inclinada descendo para a esquerda, -45°) */}
+      <rect
+        x="53"
+        y="19"
+        width="21"
+        height="42"
+        rx="10.5"
+        transform="rotate(-45 53 19)"
+        fill={colorScheme.heart}
+        fillOpacity={colorScheme.heartOpacity}
+      />
 
-      {/* 4. Sobreposição com tom médio #2D6A4F */}
+      {/* 3. Zona de sobreposição translúcida com tom intermediário visível */}
       <g clipPath={`url(#${clipId})`}>
-        <use href={`#${rightPillId}`} fill={colors.overlap} />
+        <rect
+          x="53"
+          y="19"
+          width="21"
+          height="42"
+          rx="10.5"
+          transform="rotate(45 53 19)"
+          fill={colorScheme.overlap}
+          fillOpacity={0.7}
+        />
       </g>
     </svg>
   )

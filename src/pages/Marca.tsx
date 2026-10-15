@@ -34,7 +34,7 @@ const BRAND_ASSETS: BrandAsset[] = [
   {
     id: 'simbolo',
     title: 'Símbolo Principal',
-    subtitle: 'Paleta padrão (verde esmeralda, floresta e tom médio)',
+    subtitle: 'Paleta padrão (coração esmeralda, cápsula sálvia e sobreposição)',
     description:
       'Ícone puro com geometria idêntica ao aplicativo, sobre fundo transparente. Ideal para avatares, apps, favicons, cabeçalhos e mídias sociais em fundos claros.',
     filename: 'sevisaude-simbolo.svg',
@@ -178,17 +178,17 @@ export default function MarcaPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[#F6F4EF] border border-[#D9E2D4]">
-              <div className="w-8 h-8 rounded-lg bg-[#1B4332] shadow-inner shrink-0" />
+              <div className="w-8 h-8 rounded-lg bg-[#E7F0E3] border border-[#D9E2D4] shadow-inner shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-[#26362B] truncate">Floresta</p>
-                <code className="text-[11px] text-[#6B7A6F]">#1B4332</code>
+                <p className="text-xs font-semibold text-[#26362B] truncate">Sálvia Pálido</p>
+                <code className="text-[11px] text-[#6B7A6F]">#E7F0E3</code>
               </div>
             </div>
             <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[#F6F4EF] border border-[#D9E2D4]">
-              <div className="w-8 h-8 rounded-lg bg-[#2D6A4F] shadow-inner shrink-0" />
+              <div className="w-8 h-8 rounded-lg bg-[#317355] shadow-inner shrink-0" />
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-[#26362B] truncate">Sobreposição</p>
-                <code className="text-[11px] text-[#6B7A6F]">#2D6A4F</code>
+                <code className="text-[11px] text-[#6B7A6F]">#317355</code>
               </div>
             </div>
             <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[#F6F4EF] border border-[#D9E2D4]">

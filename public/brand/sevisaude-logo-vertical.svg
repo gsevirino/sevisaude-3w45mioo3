@@ -24,28 +24,15 @@
         letter-spacing: -0.2px;
       }
     </style>
-    <!-- Pílula central a 45° -->
-    <rect
-      id="sevi-v-center"
-      x="35"
-      y="16"
-      width="18"
-      height="64"
-      rx="9"
-      transform="rotate(45 35 16)"
-    />
-    <!-- Pílula direita a -45° -->
-    <rect
-      id="sevi-v-right"
-      x="68"
-      y="42"
-      width="18"
-      height="42"
-      rx="9"
-      transform="rotate(-45 68 42)"
-    />
-    <clipPath id="sevi-v-clip">
-      <use href="#sevi-v-center" />
+    <clipPath id="sevi-v-capsule-clip">
+      <rect
+        x="36"
+        y="26"
+        width="22"
+        height="44"
+        rx="11"
+        transform="rotate(-45 36 26)"
+      />
     </clipPath>
   </defs>
 
@@ -54,23 +41,52 @@
 
   <!-- Símbolo da marca centralizado dentro do fundo suave -->
   <g id="brand-symbol" transform="translate(120, 20)">
-    <!-- 1. Pílula superior esquerda -->
+    <!-- 1. Cápsula de fundo -->
     <rect
-      x="21"
-      y="30"
-      width="18"
-      height="38"
-      rx="9"
-      transform="rotate(45 21 30)"
+      x="36"
+      y="26"
+      width="22"
+      height="44"
+      rx="11"
+      transform="rotate(-45 36 26)"
       fill="#40916C"
+      fill-opacity="0.18"
     />
-    <!-- 2. Pílula central longa -->
-    <use href="#sevi-v-center" fill="#40916C" />
-    <!-- 3. Pílula direita -->
-    <use href="#sevi-v-right" fill="#1B4332" />
-    <!-- 4. Sobreposição com tom intermediário -->
-    <g clip-path="url(#sevi-v-clip)">
-      <use href="#sevi-v-right" fill="#2D6A4F" />
+
+    <!-- 2. Coração frontal verde esmeralda #40916C -->
+    <rect
+      x="53"
+      y="19"
+      width="21"
+      height="42"
+      rx="10.5"
+      transform="rotate(45 53 19)"
+      fill="#40916C"
+      fill-opacity="0.96"
+    />
+    <rect
+      x="53"
+      y="19"
+      width="21"
+      height="42"
+      rx="10.5"
+      transform="rotate(-45 53 19)"
+      fill="#40916C"
+      fill-opacity="0.96"
+    />
+
+    <!-- 3. Sobreposição intermediária -->
+    <g clip-path="url(#sevi-v-capsule-clip)">
+      <rect
+        x="53"
+        y="19"
+        width="21"
+        height="42"
+        rx="10.5"
+        transform="rotate(45 53 19)"
+        fill="#317355"
+        fill-opacity="0.7"
+      />
     </g>
   </g>
 
