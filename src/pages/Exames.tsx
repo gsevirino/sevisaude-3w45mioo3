@@ -25,6 +25,7 @@ import { useRealtime } from '@/hooks/use-realtime'
 import { QuickCreateSelect } from '@/components/QuickCreateSelect'
 import { QuickCreateMedicoModal } from '@/components/QuickCreateMedicoModal'
 import { QuickCreateConsultaModal } from '@/components/QuickCreateConsultaModal'
+import { QuickCreateExameModal } from '@/components/QuickCreateExameModal'
 import {
   TestTube,
   Plus,
@@ -148,6 +149,9 @@ export default function Exames() {
   const [newAgendamentoHora, setNewAgendamentoHora] = useState('')
   const [newLocal, setNewLocal] = useState('')
   const [newResultFile, setNewResultFile] = useState<File | null>(null)
+
+  // Quick Create Exame Modal
+  const [quickExameModalOpen, setQuickExameModalOpen] = useState(false)
 
   // Delete Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -1194,8 +1198,9 @@ export default function Exames() {
                       type="date"
                       value={dataAgendada}
                       onChange={(e) => setDataAgendada(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] min-h-[38px]"
                     />
+                    <span className="text-[10px] text-[#6B7A6F] block mt-0.5">dd/mm/aaaa</span>
                   </div>
 
                   <div>
@@ -1206,8 +1211,9 @@ export default function Exames() {
                       type="time"
                       value={horarioAgendado}
                       onChange={(e) => setHorarioAgendado(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] min-h-[38px]"
                     />
+                    <span className="text-[10px] text-[#6B7A6F] block mt-0.5">hh:mm</span>
                   </div>
 
                   <div>
@@ -1391,8 +1397,9 @@ export default function Exames() {
                       type="date"
                       value={newAgendamentoData}
                       onChange={(e) => setNewAgendamentoData(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] min-h-[38px]"
                     />
+                    <span className="text-[10px] text-[#6B7A6F] block mt-0.5">dd/mm/aaaa</span>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-[#26362B] mb-1">
@@ -1402,8 +1409,9 @@ export default function Exames() {
                       type="time"
                       value={newAgendamentoHora}
                       onChange={(e) => setNewAgendamentoHora(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] min-h-[38px]"
                     />
+                    <span className="text-[10px] text-[#6B7A6F] block mt-0.5">hh:mm</span>
                   </div>
                 </div>
                 <div>
@@ -1472,6 +1480,22 @@ export default function Exames() {
           </div>
         </div>
       )}
+
+      {/* Quick Create Exame Modal */}
+      <QuickCreateExameModal
+        open={quickExameModalOpen}
+        medicos={medicos}
+        onClose={() => setQuickExameModalOpen(false)}
+        onOpenNewMedico={() => {
+          setQuickExameModalOpen(false)
+          setQuickMedicoModalOpen(true)
+        }}
+        defaultMedicoId={medicoId}
+        consultaId={consultaRelacionadaId}
+        onSuccess={(novoExame) => {
+          setExames((prev) => [novoExame, ...prev])
+        }}
+      />
 
       {/* Quick Create Médico Modal */}
       <QuickCreateMedicoModal

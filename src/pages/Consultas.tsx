@@ -25,6 +25,7 @@ import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import { QuickCreateSelect } from '@/components/QuickCreateSelect'
 import { QuickCreateMedicoModal } from '@/components/QuickCreateMedicoModal'
+import { QuickCreateExameModal } from '@/components/QuickCreateExameModal'
 import {
   CalendarCheck,
   Plus,
@@ -114,6 +115,9 @@ export default function Consultas() {
   // Files
   const [anexosFiles, setAnexosFiles] = useState<File[]>([])
   const anexosInputRef = useRef<HTMLInputElement>(null)
+
+  // Quick Create Exame Modal
+  const [quickExameModalOpen, setQuickExameModalOpen] = useState(false)
 
   // Delete Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -1212,9 +1216,18 @@ export default function Consultas() {
 
                   {/* Exames picker */}
                   <div>
-                    <span className="text-[11px] text-[#6B7A6F] block mb-1">
-                      Selecione pedidos de exames originados desta consulta:
-                    </span>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] text-[#6B7A6F]">
+                        Selecione pedidos de exames originados desta consulta:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQuickExameModalOpen(true)}
+                        className="text-[11px] font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
+                      >
+                        + Cadastrar novo exame
+                      </button>
+                    </div>
                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-[#F6F4EF] rounded-xl border border-[#D9E2D4]">
                       {exames.length === 0 ? (
                         <span className="text-[11px] text-gray-500 italic">
@@ -1292,6 +1305,28 @@ export default function Consultas() {
           </div>
         </div>
       )}
+
+      {/* Quick Create Exame Modal */}
+      <QuickCreateExameModal
+        open={quickExameModalOpen}
+        medicos={medicos}
+        defaultMedicoId={medicoId}
+        consultaId={editingConsulta?.id}
+        onClose={() => setQuickExameModalOpen(false)}
+        onOpenNewMedico={() => {
+          setQuickExameModalOpen(false)
+          setQuickMedicoModalOpen(true)
+        }}
+        onSuccess={(novoExame) => {
+          setExames((prev) => {
+            if (prev.some((e) => e.id === novoExame.id)) return prev
+            return [novoExame, ...prev]
+          })
+          setSelectedExamsIds((prev) =>
+            prev.includes(novoExame.id) ? prev : [...prev, novoExame.id],
+          )
+        }}
+      />
 
       {/* Quick Create Médico Modal */}
       <QuickCreateMedicoModal
