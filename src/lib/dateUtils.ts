@@ -122,6 +122,70 @@ export function formatarHora(valor?: string | null): string {
 }
 
 /**
+ * Extrai o componente de horário HH:mm a partir de qualquer string
+ * (ex: '2026-10-17 08:30', '2026-10-17T08:30:00Z', '15/10/2026 às 08:30', ou '08:30').
+ * Se não houver horário ou for 00:00 padrão de data sem hora especificada, retorna vazio ou o horário quando explícito.
+ */
+export function extrairHora(valor?: string | null): string {
+  if (!valor) return ''
+  const trimmed = valor.trim()
+  if (!trimmed) return ''
+
+  // Se tiver "às HH:mm" ou separador com T ou espaço seguido de HH:mm
+  const matchHora = trimmed.match(/(?:T|\s+|às\s+|^)(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (matchHora) {
+    const [, hora, min] = matchHora
+    return `${hora.padStart(2, '0')}:${min}`
+  }
+
+  return ''
+}
+
+/**
+ * Converte data (YYYY-MM-DD) e horário opcional (HH:mm) para a string canônica armazenada:
+ * 'YYYY-MM-DD HH:mm' (ou apenas 'YYYY-MM-DD' se horário não informado).
+ */
+export function montarDataHoraAgendada(data?: string | null, hora?: string | null): string {
+  const d = data ? extrairDataIso(data) : ''
+  if (!d) return ''
+  const h = hora ? extrairHora(hora) : ''
+  return h ? `${d} ${h}` : d
+}
+
+/**
+ * Divide uma string de agendamento em data ISO ('YYYY-MM-DD') e horário ('HH:mm').
+ * Suporta formatos estruturados ('YYYY-MM-DD HH:mm', 'YYYY-MM-DD') e texto livre legado
+ * ('15/10/2026 às 08:30', '15/10/2026', '2026-10-15T08:30:00.000Z').
+ */
+export function desmembrarDataHoraAgendada(valor?: string | null): { data: string; hora: string } {
+  if (!valor) return { data: '', hora: '' }
+  const trimmed = valor.trim()
+  if (!trimmed) return { data: '', hora: '' }
+
+  const dataIso = extrairDataIso(trimmed)
+  let hora = ''
+
+  // Procura horário se não for meia-noite cravada de timestamp UTC
+  const matchHora = trimmed.match(/(?:T|\s+|às\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (matchHora) {
+    const [, h, m] = matchHora
+    // Se for string ISO com 00:00:00 puro, ignore (é apenas data)
+    const isIsoPureMidnight =
+      (trimmed.includes('00:00:00') || (h === '00' && m === '00')) &&
+      !trimmed.includes('às') &&
+      !trimmed.match(/\s\d{2}:\d{2}$/)
+    if (!isIsoPureMidnight || trimmed.includes('às') || trimmed.match(/\s00:00$/)) {
+      hora = `${h.padStart(2, '0')}:${m}`
+    }
+  }
+
+  return {
+    data: dataIso,
+    hora,
+  }
+}
+
+/**
  * Formata data e horário completos: DD/MM/AAAA às HH:mm (ou formato customizado).
  * Trata tanto ISO timestamps reais (com hora e minuto além de 00:00) quanto combinações de data + campo horário.
  */

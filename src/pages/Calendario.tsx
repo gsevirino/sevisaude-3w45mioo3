@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { formatarData, formatarHora, extrairDataIso } from '@/lib/dateUtils'
+import { formatarData, formatarHora, extrairDataIso, extrairHora } from '@/lib/dateUtils'
 import { getConsultas, getExames } from '@/services/healthService'
 import type { Consulta, Exame } from '@/types/health'
 import { useAuth } from '@/context/AuthContext'
@@ -174,9 +174,14 @@ export default function Calendario() {
       extrairDataIso(e.data_solicitado)
     if (!d) return
     if (!eventsByDate[d]) eventsByDate[d] = []
+
+    // Se houver horário no agendamento, extrai e exibe; caso contrário, fica sem hora
+    const exameHora = e.data_hora_agendada ? extrairHora(e.data_hora_agendada) : ''
+
     eventsByDate[d].push({
       id: `e-${e.id}`,
       title: `Exame: ${e.nome}`,
+      time: exameHora ? formatarHora(exameHora) : undefined,
       doctorName: e.expand?.medico?.nome,
       doctorSpecialty: e.tipo,
       type: 'exame',

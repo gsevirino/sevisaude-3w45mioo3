@@ -56,6 +56,9 @@ import {
   formatarDataHora,
   formatarTimestampLocal,
   extrairDataIso,
+  extrairHora,
+  montarDataHoraAgendada,
+  desmembrarDataHoraAgendada,
 } from '@/lib/dateUtils'
 
 const TIPOS: TipoExame[] = [
@@ -122,7 +125,8 @@ export default function Exames() {
   const [dataSolicitado, setDataSolicitado] = useState('')
   const [dataValidade, setDataValidade] = useState('')
   const [localRealizacao, setLocalRealizacao] = useState('')
-  const [dataHoraAgendada, setDataHoraAgendada] = useState('')
+  const [dataAgendada, setDataAgendada] = useState('')
+  const [horarioAgendado, setHorarioAgendado] = useState('')
   const [instrucoesPreparo, setInstrucoesPreparo] = useState('')
   const [dataRealizado, setDataRealizado] = useState('')
   const [dataDisponibilizacaoResultado, setDataDisponibilizacaoResultado] = useState('')
@@ -140,7 +144,8 @@ export default function Exames() {
   const [selectedExameForStatus, setSelectedExameForStatus] = useState<Exame | null>(null)
   const [targetStatus, setTargetStatus] = useState<StatusExame>('Agendado')
   const [statusObservation, setStatusObservation] = useState('')
-  const [newAgendamentoDataHora, setNewAgendamentoDataHora] = useState('')
+  const [newAgendamentoData, setNewAgendamentoData] = useState('')
+  const [newAgendamentoHora, setNewAgendamentoHora] = useState('')
   const [newLocal, setNewLocal] = useState('')
   const [newResultFile, setNewResultFile] = useState<File | null>(null)
 
@@ -186,7 +191,8 @@ export default function Exames() {
     setDataSolicitado(today)
     setDataValidade('')
     setLocalRealizacao('')
-    setDataHoraAgendada('')
+    setDataAgendada('')
+    setHorarioAgendado('')
     setInstrucoesPreparo('')
     setDataRealizado('')
     setDataDisponibilizacaoResultado('')
@@ -209,7 +215,11 @@ export default function Exames() {
     setDataSolicitado(extrairDataIso(ex.data_solicitado))
     setDataValidade(extrairDataIso(ex.data_validade))
     setLocalRealizacao(ex.local_realizacao || '')
-    setDataHoraAgendada(ex.data_hora_agendada || '')
+
+    const parsedAgendamento = desmembrarDataHoraAgendada(ex.data_hora_agendada)
+    setDataAgendada(parsedAgendamento.data)
+    setHorarioAgendado(parsedAgendamento.hora)
+
     setInstrucoesPreparo(ex.instrucoes_preparo || '')
     setDataRealizado(extrairDataIso(ex.data_realizado))
     setDataDisponibilizacaoResultado(extrairDataIso(ex.data_disponibilizacao_resultado))
@@ -265,7 +275,10 @@ export default function Exames() {
       formData.append('data_solicitado', dataSolicitado)
       if (dataValidade) formData.append('data_validade', dataValidade)
       if (localRealizacao.trim()) formData.append('local_realizacao', localRealizacao.trim())
-      if (dataHoraAgendada.trim()) formData.append('data_hora_agendada', dataHoraAgendada.trim())
+
+      const agendamentoFinal = montarDataHoraAgendada(dataAgendada, horarioAgendado)
+      formData.append('data_hora_agendada', agendamentoFinal)
+
       if (instrucoesPreparo.trim()) formData.append('instrucoes_preparo', instrucoesPreparo.trim())
       if (dataRealizado) formData.append('data_realizado', dataRealizado)
       if (dataDisponibilizacaoResultado) {
@@ -333,7 +346,9 @@ export default function Exames() {
     setSelectedExameForStatus(ex)
     setTargetStatus(nextSt || ex.status)
     setStatusObservation('')
-    setNewAgendamentoDataHora(ex.data_hora_agendada || '')
+    const parsedAgendamento = desmembrarDataHoraAgendada(ex.data_hora_agendada)
+    setNewAgendamentoData(parsedAgendamento.data)
+    setNewAgendamentoHora(parsedAgendamento.hora)
     setNewLocal(ex.local_realizacao || '')
     setNewResultFile(null)
     setStatusModalOpen(true)
@@ -359,8 +374,12 @@ export default function Exames() {
       const formData = new FormData()
       formData.append('status', targetStatus)
 
-      if (newAgendamentoDataHora.trim()) {
-        formData.append('data_hora_agendada', newAgendamentoDataHora.trim())
+      const agendamentoAtualizado = montarDataHoraAgendada(newAgendamentoData, newAgendamentoHora)
+      if (agendamentoAtualizado) {
+        formData.append('data_hora_agendada', agendamentoAtualizado)
+      } else if (newAgendamentoData === '' && targetStatus === 'Agendado') {
+        // Se usuário limpou os campos ao reagendar
+        formData.append('data_hora_agendada', '')
       }
       if (newLocal.trim()) {
         formData.append('local_realizacao', newLocal.trim())
@@ -1166,17 +1185,28 @@ export default function Exames() {
                   Agendamento e Local de Coleta / Execução
                 </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                      Data e hora agendados
+                      Data agendada
                     </label>
                     <input
-                      type="text"
-                      value={dataHoraAgendada}
-                      onChange={(e) => setDataHoraAgendada(e.target.value)}
-                      placeholder="Ex.: 15/10/2026 às 08:30"
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                      type="date"
+                      value={dataAgendada}
+                      onChange={(e) => setDataAgendada(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Horário agendado
+                    </label>
+                    <input
+                      type="time"
+                      value={horarioAgendado}
+                      onChange={(e) => setHorarioAgendado(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                     />
                   </div>
 
@@ -1188,8 +1218,8 @@ export default function Exames() {
                       type="text"
                       value={localRealizacao}
                       onChange={(e) => setLocalRealizacao(e.target.value)}
-                      placeholder="Ex.: Laboratório Fleury - Unidade Jardins"
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                      placeholder="Ex.: Laboratório Fleury - Jardins"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                     />
                   </div>
                 </div>
@@ -1203,7 +1233,7 @@ export default function Exames() {
                     value={instrucoesPreparo}
                     onChange={(e) => setInstrucoesPreparo(e.target.value)}
                     placeholder="Ex.: Jejum absoluto de 12 horas; beber 4 copos de água 1h antes; não suspender medicamentos..."
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                   />
                 </div>
               </div>
@@ -1352,17 +1382,29 @@ export default function Exames() {
 
             {targetStatus === 'Agendado' && (
               <div className="space-y-3 p-3.5 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4]">
-                <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                    Data e horário agendados
-                  </label>
-                  <input
-                    type="text"
-                    value={newAgendamentoDataHora}
-                    onChange={(e) => setNewAgendamentoDataHora(e.target.value)}
-                    placeholder="Ex.: 22/10/2026 às 08:00"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Data agendada
+                    </label>
+                    <input
+                      type="date"
+                      value={newAgendamentoData}
+                      onChange={(e) => setNewAgendamentoData(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Horário agendado
+                    </label>
+                    <input
+                      type="time"
+                      value={newAgendamentoHora}
+                      onChange={(e) => setNewAgendamentoHora(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[#26362B] mb-1">
@@ -1373,7 +1415,7 @@ export default function Exames() {
                     value={newLocal}
                     onChange={(e) => setNewLocal(e.target.value)}
                     placeholder="Ex.: Laboratório Fleury"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                   />
                 </div>
               </div>
