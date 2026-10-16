@@ -508,10 +508,6 @@ export default function Medicamentos() {
           <h1 className="font-serif italic text-3xl md:text-4xl text-[#26362B] font-semibold tracking-tight">
             Meus medicamentos
           </h1>
-          <p className="text-[#6B7A6F] text-sm mt-1">
-            Prontuário completo: princípio ativo, posologia, receita anexada, 4 estados e auditoria
-            imutável
-          </p>
         </div>
 
         {permissions.medicamentos_editar && !isReadOnly ? (

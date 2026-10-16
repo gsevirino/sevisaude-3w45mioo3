@@ -375,8 +375,7 @@ export default function Consultas() {
             Consultas
           </h1>
           <p className="text-[#6B7A6F] text-sm mt-1">
-            Agendamentos, orientações médicas e registro pós-consulta estruturado com autoria do
-            paciente
+            Agendamentos, orientações médicas e registro pós-consulta.
           </p>
         </div>
 
