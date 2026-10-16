@@ -413,7 +413,7 @@ export default function Planos() {
             </h4>
             <p className="text-xs text-[#6B7A6F] leading-relaxed">
               Cobrança mensal confirmada manualmente pela dona do negócio. Sem cobranças automáticas
-              inesperadas no seu cartão de crédito.
+              inesperadas no seu cartão de crédito. Chave oficial disponível na área de pagamento.
             </p>
           </div>
 

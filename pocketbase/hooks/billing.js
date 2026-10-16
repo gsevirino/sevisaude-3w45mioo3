@@ -4,12 +4,72 @@
 // Todas as funções auxiliares e constantes DEVEM ser declaradas dentro do escopo de cada callback.
 
 // -------------------------------------------------------------
+// 0. Bootstrap idempotente: Garante configurações oficiais (Chave PIX)
+// -------------------------------------------------------------
+onBootstrap((e) => {
+  e.next()
+  try {
+    const OFFICIAL_PIX_KEY = '0545b7e1-6a4b-442e-a6f6-d2b1721b6340'
+    const app = e.app || $app
+
+    let keyRec
+    try {
+      keyRec = app.findFirstRecordByData('app_settings', 'key', 'pix_key')
+    } catch (_) {
+      try {
+        keyRec = app.findFirstRecordByFilter('app_settings', 'key = "pix_key"')
+      } catch (_) {}
+    }
+
+    if (keyRec) {
+      if (keyRec.getString('value') !== OFFICIAL_PIX_KEY) {
+        keyRec.set('value', OFFICIAL_PIX_KEY)
+        keyRec.set('description', 'Chave PIX da proprietária do SeviSaúde (Chave Aleatória UUID)')
+        app.save(keyRec)
+      }
+    } else {
+      const settingsCol = app.findCollectionByNameOrId('app_settings')
+      const newRec = new Record(settingsCol)
+      newRec.set('key', 'pix_key')
+      newRec.set('value', OFFICIAL_PIX_KEY)
+      newRec.set('description', 'Chave PIX da proprietária do SeviSaúde (Chave Aleatória UUID)')
+      app.save(newRec)
+    }
+
+    let benRec
+    try {
+      benRec = app.findFirstRecordByData('app_settings', 'key', 'pix_beneficiary_name')
+    } catch (_) {
+      try {
+        benRec = app.findFirstRecordByFilter('app_settings', 'key = "pix_beneficiary_name"')
+      } catch (_) {}
+    }
+
+    if (benRec) {
+      if (!benRec.getString('value')) {
+        benRec.set('value', 'Gislaine Sevirino')
+        app.save(benRec)
+      }
+    } else {
+      const settingsCol = app.findCollectionByNameOrId('app_settings')
+      const newBenRec = new Record(settingsCol)
+      newBenRec.set('key', 'pix_beneficiary_name')
+      newBenRec.set('value', 'Gislaine Sevirino')
+      newBenRec.set('description', 'Nome do beneficiário cadastrado no banco para conferência')
+      app.save(newBenRec)
+    }
+  } catch (err) {
+    console.error('[Billing Bootstrap] Erro ao garantir configurações PIX:', err)
+  }
+})
+
+// -------------------------------------------------------------
 // 1. Hook onRecordCreate: Criação de conta de usuário (Novo User)
 // Inicia automaticamente o teste grátis de 30 dias (Sevi Essencial Trial)
 // -------------------------------------------------------------
 onRecordCreate((e) => {
   e.next()
-  if (e.collection.name === 'users') {
+  if (e.collection && e.collection.name === 'users') {
     try {
       const userId = e.record.id
       let existingSub
@@ -42,7 +102,7 @@ onRecordCreate((e) => {
 // 2. Limite no Backend: health_profiles (Criação de novos perfis)
 // -------------------------------------------------------------
 onRecordCreate((e) => {
-  if (e.collection.name === 'health_profiles') {
+  if (e.collection && e.collection.name === 'health_profiles') {
     const authRecord = e.auth || null
     const ownerUserId = e.record.getString('user') || (authRecord ? authRecord.id : null)
 
@@ -149,7 +209,7 @@ const CLINICAL_COLLECTIONS = [
 for (let i = 0; i < CLINICAL_COLLECTIONS.length; i++) {
   const colName = CLINICAL_COLLECTIONS[i]
   onRecordCreate((e) => {
-    if (e.collection.name === colName) {
+    if (e.collection && e.collection.name === colName) {
       const authRecord = e.auth || null
       if (authRecord) {
         const uId = authRecord.id
@@ -187,7 +247,7 @@ for (let i = 0; i < CLINICAL_COLLECTIONS.length; i++) {
   })
 
   onRecordUpdate((e) => {
-    if (e.collection.name === colName) {
+    if (e.collection && e.collection.name === colName) {
       const authRecord = e.auth || null
       if (authRecord) {
         const uId = authRecord.id
@@ -230,7 +290,7 @@ for (let i = 0; i < CLINICAL_COLLECTIONS.length; i++) {
 // Recusa upload com mensagem clara em pt-BR quando estourar a cota somada da conta
 // -------------------------------------------------------------
 onRecordCreate((e) => {
-  if (e.collection.name === 'documentos') {
+  if (e.collection && e.collection.name === 'documentos') {
     const authRecord = e.auth || null
     const ownerUserId = e.record.getString('userId') || (authRecord ? authRecord.id : null)
 
