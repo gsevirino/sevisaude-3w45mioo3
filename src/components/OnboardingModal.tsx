@@ -4,7 +4,7 @@ import { useHealthProfile } from '@/context/HealthProfileContext'
 import { Heart, UserCheck, Pill, Users, ArrowRight, Check, Shield, Sparkles } from 'lucide-react'
 import { SeviSaudeIcon } from '@/components/SeviSaudeLogo'
 import { createHealthProfile, updateHealthProfile } from '@/services/healthProfileService'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import { toast } from '@/hooks/use-toast'
 
 interface OnboardingModalProps {

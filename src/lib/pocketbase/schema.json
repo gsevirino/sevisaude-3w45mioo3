@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T20:00:03.376Z",
+  "generatedAt": "2026-10-16T20:08:14.222Z",
   "collections": [
     {
       "name": "users",
@@ -1590,6 +1590,76 @@
         "CREATE INDEX idx_payments_user ON payments (user)",
         "CREATE INDEX idx_payments_status ON payments (status)",
         "CREATE INDEX idx_payments_created ON payments (created)"
+      ]
+    },
+    {
+      "name": "ocr_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "view": "@request.auth.id != '' && (user = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'",
+        "delete": "@request.auth.id != '' && @request.auth.email = 'gislaine.sevirino@gmail.com'"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "profile",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "health_profiles"
+        },
+        {
+          "name": "mes_ano",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_documento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "arquivo_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["sucesso", "falha"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ocr_logs_user ON ocr_logs (user)",
+        "CREATE INDEX idx_ocr_logs_user_mes ON ocr_logs (user, mes_ano)"
       ]
     }
   ]

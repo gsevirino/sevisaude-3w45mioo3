@@ -191,7 +191,6 @@ export function MeuPlanoTab({ initialChosenPlan }: MeuPlanoTabProps) {
                 : `Limite do plano: ${currentPlanDef.maxProfiles} ${currentPlanDef.maxProfiles > 1 ? 'perfis' : 'perfil'}`}
             </p>
           </div>
-
           {/* Armazenamento */}
           <div className="p-4 rounded-2xl bg-[#F6F4EF]/70 border border-[#D9E2D4] space-y-1">
             <div className="flex items-center justify-between text-xs text-[#6B7A6F]">
@@ -215,7 +214,6 @@ export function MeuPlanoTab({ initialChosenPlan }: MeuPlanoTabProps) {
               {summary?.usage?.docCount ?? 0} documento(s) anexado(s)
             </p>
           </div>
-
           {/* OCR Reservado */}
           <div className="p-4 rounded-2xl bg-[#F6F4EF]/70 border border-[#D9E2D4] space-y-1">
             <div className="flex items-center justify-between text-xs text-[#6B7A6F]">
@@ -224,18 +222,37 @@ export function MeuPlanoTab({ initialChosenPlan }: MeuPlanoTabProps) {
                 OCR de Receitas
               </span>
               <span className="font-bold text-[#26362B]">
-                0 / {currentPlanDef.monthlyOcrDocs} docs/mês
+                {summary?.usage?.ocrUsedThisMonth ?? 0} / {currentPlanDef.monthlyOcrDocs} docs/mês
               </span>
             </div>
             <div className="w-full bg-[#D9E2D4] h-2 rounded-full overflow-hidden">
-              <div className="bg-[#4C7A5A] h-full rounded-full" style={{ width: '0%' }} />
+              <div
+                className="bg-[#4C7A5A] h-full rounded-full transition-all"
+                style={{
+                  width: `${
+                    currentPlanDef.monthlyOcrDocs > 0
+                      ? Math.min(
+                          100,
+                          Math.round(
+                            ((summary?.usage?.ocrUsedThisMonth ?? 0) /
+                              currentPlanDef.monthlyOcrDocs) *
+                              100,
+                          ),
+                        )
+                      : 0
+                  }%`,
+                }}
+              />
             </div>
             <p className="text-[10px] text-[#6B7A6F]">
               {currentPlanDef.monthlyOcrDocs > 0
-                ? 'Cota mensal reservada'
-                : 'Disponível no Completo e Família'}
+                ? `${Math.max(
+                    0,
+                    currentPlanDef.monthlyOcrDocs - (summary?.usage?.ocrUsedThisMonth ?? 0),
+                  )} leitura(s) restante(s) este mês`
+                : 'Disponível no Completo (10/mês) e Família (30/mês)'}
             </p>
-          </div>
+          </div>{' '}
         </div>
 
         {isExpired && !isCortesia && (

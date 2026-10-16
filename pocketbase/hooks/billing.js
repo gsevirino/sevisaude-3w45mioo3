@@ -404,6 +404,336 @@ onRecordCreate((e) => {
 })
 
 // -------------------------------------------------------------
+// 4.1 Endpoint de Leitura OCR com IA ($ai.chat / SKIP_AI_GATEWAY)
+// POST /backend/v1/sevisaude/ocr/processar
+// -------------------------------------------------------------
+routerAdd(
+  'POST',
+  '/backend/v1/sevisaude/ocr/processar',
+  (e) => {
+    try {
+      const authRecord = e.auth
+      if (!authRecord) {
+        return e.json(401, { error: 'Autenticação necessária' })
+      }
+
+      const reqInfo = e.requestInfo()
+      const body = reqInfo.body || {}
+      const profileId = (body.profileId || '').trim()
+
+      if (!profileId) {
+        return e.json(400, { error: 'Perfil de saúde não informado.' })
+      }
+
+      // Validar acesso ao perfil
+      let targetProfile
+      try {
+        targetProfile = e.app.findRecordById('health_profiles', profileId)
+      } catch (_) {
+        return e.json(404, { error: 'Perfil de saúde não encontrado.' })
+      }
+
+      const profileOwnerUserId = targetProfile.getString('user')
+      const isOwner = authRecord.id === profileOwnerUserId
+
+      // Se não for dono, verificar permissão via grants (precisa ter medicamentos_editar ou documentos_editar ou exames_editar)
+      if (!isOwner) {
+        let hasPermission = false
+        try {
+          const userGrants = e.app.findRecordsByFilter(
+            'profile_access_grants',
+            'profile = "' +
+              profileId +
+              '" && grantee_user = "' +
+              authRecord.id +
+              '" && status = "accepted"',
+            'created',
+            10,
+            0,
+          )
+          for (let g = 0; g < userGrants.length; g++) {
+            const rawP = userGrants[g].getString('permissions') || '{}'
+            const pObj = JSON.parse(rawP)
+            if (
+              pObj.medicamentos_editar === true ||
+              pObj.documentos_editar === true ||
+              pObj.exames_editar === true
+            ) {
+              hasPermission = true
+              break
+            }
+          }
+        } catch (_) {}
+
+        if (!hasPermission) {
+          return e.json(403, {
+            error:
+              'Você não tem permissão de criação ou edição para este familiar/titular de saúde.',
+          })
+        }
+      }
+
+      // 4. Verificar Assinatura e Cotas OCR do DONO da conta
+      const billingOwnerId = profileOwnerUserId
+      let sub
+      try {
+        sub = e.app.findFirstRecordByFilter('subscriptions', 'user = "' + billingOwnerId + '"')
+      } catch (_) {}
+
+      const planLimits = {
+        essencial: { monthlyOcrLimit: 0, nome: 'Sevi Essencial' },
+        completo: { monthlyOcrLimit: 10, nome: 'Sevi Completo' },
+        familia: { monthlyOcrLimit: 30, nome: 'Sevi Família' },
+      }
+
+      const planKey = (sub ? sub.getString('plano') : 'essencial') || 'essencial'
+      const isCortesia = sub ? sub.getBool('is_cortesia') : false
+      const status = sub ? sub.getString('status') : 'trial'
+      const todayIso = new Date().toISOString().split('T')[0]
+
+      let isActive = false
+      if (sub) {
+        if (isCortesia) {
+          const cortesiaAte = sub.getString('data_cortesia_ate')
+          if (!cortesiaAte || todayIso <= cortesiaAte.split('T')[0]) isActive = true
+        } else if (status === 'trial') {
+          const trialEndsAt = sub.getString('trial_ends_at')
+          if (trialEndsAt && todayIso <= trialEndsAt.split('T')[0]) isActive = true
+        } else if (status === 'ativa') {
+          const dataFim = sub.getString('data_fim')
+          if (dataFim && todayIso <= dataFim.split('T')[0]) isActive = true
+        }
+      }
+
+      if (!isActive) {
+        return e.json(403, {
+          error:
+            'A assinatura ou período de teste do titular está expirado. Renove o plano para usar o OCR.',
+        })
+      }
+
+      const planCfg = planLimits[planKey] || planLimits.essencial
+      const maxMonthlyOcr = isCortesia ? 30 : planCfg.monthlyOcrLimit
+
+      if (maxMonthlyOcr <= 0) {
+        return e.json(403, {
+          error:
+            'O recurso de OCR (leitura inteligente de receitas) não está disponível no plano ' +
+            planCfg.nome +
+            '. Faça upgrade para o Sevi Completo ou Sevi Família.',
+        })
+      }
+
+      // Verificar consumo do mês atual
+      const currentYearMonth = todayIso.substring(0, 7) // "YYYY-MM"
+      let ocrCountThisMonth = 0
+      try {
+        const ocrLogs = e.app.findRecordsByFilter(
+          'ocr_logs',
+          'user = "' +
+            billingOwnerId +
+            '" && mes_ano = "' +
+            currentYearMonth +
+            '" && status = "sucesso"',
+          'created',
+          1000,
+          0,
+        )
+        ocrCountThisMonth = ocrLogs.length
+      } catch (_) {}
+
+      if (ocrCountThisMonth >= maxMonthlyOcr) {
+        return e.json(429, {
+          error:
+            'Você atingiu o limite mensal de ' +
+            maxMonthlyOcr +
+            ' documentos lidos via OCR para o plano ' +
+            planCfg.nome +
+            '. Faça upgrade para o plano Sevi Família ou aguarde a renovação do próximo mês.',
+          currentUsage: ocrCountThisMonth,
+          maxUsage: maxMonthlyOcr,
+        })
+      }
+
+      // 5. Obter arquivo enviado (multipart form-data ou base64)
+      const files = e.findUploadedFiles('arquivo')
+      let fileDataUrl = (body.fileDataUrl || '').trim()
+      let fileName = 'documento.jpg'
+
+      if (files && files.length > 0) {
+        fileName = files[0].name
+      } else if (!fileDataUrl) {
+        return e.json(400, { error: 'Nenhum arquivo enviado para processamento.' })
+      }
+
+      // 6. Preparar conteúdo para o Gateway de IA ($ai.chat ou chamada direta com SKIP_AI_GATEWAY_URL)
+      // O gateway suporta imagens via data:image/...;base64,... ou texto extraído via $documents
+      let imageContentItem = null
+      let extractedMarkdownText = ''
+
+      if (files && files.length > 0) {
+        const f = files[0]
+        const isPdf = f.name.toLowerCase().endsWith('.pdf')
+        if (isPdf) {
+          try {
+            const docRes = $documents.toMarkdown({ file: f })
+            extractedMarkdownText = docRes.markdown || ''
+          } catch (docErr) {
+            // Se for PDF escaneado (sem texto), podemos converter ou precisar de imagem
+            console.log('[OCR] $documents.toMarkdown para PDF:', docErr.message)
+          }
+        }
+      }
+
+      // Se temos fileDataUrl (enviado pelo frontend em base64/data URI para imagens e PDFs)
+      const userMessageContent = []
+      userMessageContent.push({
+        type: 'text',
+        text:
+          'Você é um assistente especializado em digitalização e extração estruturada de documentos médicos e receitas de saúde no Brasil (SeviSaúde).\n\n' +
+          'Analise a imagem/documento anexado e extraia as informações com extrema fidelidade.\n' +
+          'Se não encontrar algum campo, retorne null ou string vazia.\n' +
+          'Retorne ESTRITAMENTE um objeto JSON válido (sem tags markdown, sem ```json, sem comentários adicionais), no seguinte formato:\n' +
+          '{\n' +
+          '  "tipo_documento": "receita" | "pedido_exame" | "laudo" | "atestado" | "outro",\n' +
+          '  "medico": {\n' +
+          '    "nome": "Nome do Médico ou Profissional",\n' +
+          '    "crm": "CRM e UF se visível",\n' +
+          '    "especialidade": "Especialidade se visível"\n' +
+          '  },\n' +
+          '  "data_documento": "YYYY-MM-DD",\n' +
+          '  "medicamentos": [\n' +
+          '    {\n' +
+          '      "nome": "Nome comercial ou princípio ativo",\n' +
+          '      "principio_ativo": "",\n' +
+          '      "dosagem": "Ex: 50mg",\n' +
+          '      "forma": "comprimido" | "cápsula" | "xarope" | "solução" | "gotas" | "injetável" | "creme" | "pomada" | "outro",\n' +
+          '      "posologia": "Ex: 1 comprimido pela manhã",\n' +
+          '      "frequencia": "Ex: 12 em 12 horas",\n' +
+          '      "tipo_uso": "contínuo" | "temporário",\n' +
+          '      "horarios": ["08:00"]\n' +
+          '    }\n' +
+          '  ],\n' +
+          '  "exames": [\n' +
+          '    {\n' +
+          '      "nome": "Nome do exame solicitado",\n' +
+          '      "tipo": "Sangue" | "Imagem" | "Urina" | "Cardíaco" | "Outro",\n' +
+          '      "observacoes": ""\n' +
+          '    }\n' +
+          '  ],\n' +
+          '  "texto_completo_extraido": "Transcrição integral do texto legível no documento",\n' +
+          '  "confianca": "alta" | "media" | "baixa",\n' +
+          '  "observacoes_leitura": "Notas sobre legibilidade ou recomendações para o usuário conferir"\n' +
+          '}',
+      })
+
+      if (fileDataUrl) {
+        userMessageContent.push({
+          type: 'image_url',
+          image_url: {
+            url: fileDataUrl,
+          },
+        })
+      } else if (extractedMarkdownText) {
+        userMessageContent.push({
+          type: 'text',
+          text: 'Texto extraído do documento digital:\n\n' + extractedMarkdownText,
+        })
+      }
+
+      // Chamar $ai.chat com gateway
+      let chatResponseText = ''
+      try {
+        const aiRes = $ai.chat({
+          model: 'fast',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Você é um assistente de OCR médico do SeviSaúde. Responda apenas com JSON puro.',
+            },
+            {
+              role: 'user',
+              content: userMessageContent,
+            },
+          ],
+        })
+        chatResponseText = aiRes.choices[0].message.content || ''
+      } catch (aiErr) {
+        console.error('[OCR] Erro na chamada $ai.chat:', aiErr)
+        // Se a chamada de IA falhar, NÃO consome a cota e retorna erro amigável
+        return e.json(502, {
+          error:
+            'Falha temporária ao comunicar com o serviço de inteligência artificial para leitura do documento. Sua cota de OCR NÃO foi consumida. Tente novamente em alguns instantes.',
+          details: aiErr.message || String(aiErr),
+        })
+      }
+
+      // Tratar e parsear JSON retornado
+      let extractedData = null
+      try {
+        let cleanText = chatResponseText.trim()
+        if (cleanText.startsWith('```json')) {
+          cleanText = cleanText.substring(7)
+        } else if (cleanText.startsWith('```')) {
+          cleanText = cleanText.substring(3)
+        }
+        if (cleanText.endsWith('```')) {
+          cleanText = cleanText.substring(0, cleanText.length - 3)
+        }
+        cleanText = cleanText.trim()
+        extractedData = JSON.parse(cleanText)
+      } catch (parseErr) {
+        console.warn('[OCR] Erro ao parsear JSON da IA:', chatResponseText)
+        extractedData = {
+          tipo_documento: 'outro',
+          medico: null,
+          data_documento: todayIso,
+          medicamentos: [],
+          exames: [],
+          texto_completo_extraido: chatResponseText,
+          confianca: 'baixa',
+          observacoes_leitura:
+            'Não foi possível estruturar automaticamente todos os campos. Por favor, preencha manualmente na tela de conferência.',
+        }
+      }
+
+      // Se a extração foi bem sucedida, REGISTRAR consumo no ocr_logs
+      try {
+        const ocrCol = e.app.findCollectionByNameOrId('ocr_logs')
+        const logRec = new Record(ocrCol)
+        logRec.set('user', billingOwnerId)
+        logRec.set('profile', profileId)
+        logRec.set('mes_ano', currentYearMonth)
+        logRec.set('tipo_documento', extractedData.tipo_documento || 'documento')
+        logRec.set('arquivo_nome', fileName)
+        logRec.set('status', 'sucesso')
+        e.app.save(logRec)
+        ocrCountThisMonth++
+      } catch (logErr) {
+        console.error('[OCR] Erro ao salvar log de consumo:', logErr)
+      }
+
+      return e.json(200, {
+        success: true,
+        data: extractedData,
+        quota: {
+          usedThisMonth: ocrCountThisMonth,
+          maxMonthly: maxMonthlyOcr,
+          remainingThisMonth: Math.max(0, maxMonthlyOcr - ocrCountThisMonth),
+        },
+      })
+    } catch (err) {
+      console.error('[OCR] Erro não tratado:', err)
+      return e.json(500, {
+        error: (err && err.message) || 'Erro interno ao processar OCR.',
+      })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// -------------------------------------------------------------
 // 5. Endpoints REST Customizados para Billing e Área Administrativa
 // -------------------------------------------------------------
 
@@ -527,6 +857,24 @@ routerAdd(
         daysRemaining = Math.max(0, Math.ceil((dEnd - dNow) / (1000 * 60 * 60 * 24)))
       }
 
+      // Calcular consumo de OCR deste mês (YYYY-MM)
+      const currentYearMonth = todayIso.substring(0, 7)
+      let ocrCountThisMonth = 0
+      try {
+        const ocrLogs = e.app.findRecordsByFilter(
+          'ocr_logs',
+          'user = "' +
+            authRecord.id +
+            '" && mes_ano = "' +
+            currentYearMonth +
+            '" && status = "sucesso"',
+          'created',
+          1000,
+          0,
+        )
+        ocrCountThisMonth = ocrLogs.length
+      } catch (_) {}
+
       return e.json(200, {
         subscription: sub,
         planConfig: planConfig,
@@ -542,7 +890,7 @@ routerAdd(
           docCount: docs.length,
           estimatedStorageUsedBytes: docs.length * 2 * 1024 * 1024,
           maxStorageBytes: planConfig.maxStorageBytes,
-          ocrUsedThisMonth: 0,
+          ocrUsedThisMonth: ocrCountThisMonth,
           maxOcrMonthly: planConfig.monthlyOcrLimit,
           daysRemaining: daysRemaining,
         },

@@ -48,9 +48,11 @@ import {
   ShieldCheck,
   Filter,
   Search,
+  Sparkles,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatarData, formatarHora, formatarTimestampLocal, extrairDataIso } from '@/lib/dateUtils'
+import { OCRReviewModal } from '@/components/OCRReviewModal'
 
 const FORMAS: { label: string; value: FormaFarmaceutica }[] = [
   { label: 'Comprimido', value: 'comprimido' },
@@ -154,6 +156,15 @@ export default function Medicamentos() {
   // Delete modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [medToDelete, setMedToDelete] = useState<Medicamento | null>(null)
+
+  // OCR Modal States
+  const [ocrProcessing, setOcrProcessing] = useState(false)
+  const [ocrModalOpen, setOcrModalOpen] = useState(false)
+  const [ocrFile, setOcrFile] = useState<File | null>(null)
+  const [ocrPreviewUrl, setOcrPreviewUrl] = useState('')
+  const [ocrExtractedData, setOcrExtractedData] = useState<any>(null)
+  const [ocrQuotaRemaining, setOcrQuotaRemaining] = useState(0)
+  const ocrInputRef = useRef<HTMLInputElement>(null)
 
   // Expanded alteration history cards
   const [expandedHistory, setExpandedHistory] = useState<Record<string, AlteracaoMedicamento[]>>({})
@@ -516,13 +527,77 @@ export default function Medicamentos() {
         </div>
 
         {permissions.medicamentos_editar && !isReadOnly ? (
-          <button
-            onClick={openNewForm}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo medicamento</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+            {/* Input oculto para OCR de receita */}
+            <input
+              ref={ocrInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,.pdf"
+              className="hidden"
+              onChange={async (e) => {
+                const selected = e.target.files?.[0]
+                if (!selected || !activeProfile?.id) return
+                e.target.value = ''
+                setOcrProcessing(true)
+                const previewUrl = URL.createObjectURL(selected)
+                setOcrFile(selected)
+                setOcrPreviewUrl(previewUrl)
+                try {
+                  toast({
+                    title: 'Lendo receita com IA...',
+                    description: 'Identificando medicamentos, doses e posologia.',
+                  })
+                  const { processDocumentOcr } = await import('@/services/ocrService')
+                  const result = await processDocumentOcr(selected, activeProfile.id)
+                  if (result.success && result.data) {
+                    setOcrExtractedData(result.data)
+                    setOcrQuotaRemaining(result.quota?.remainingThisMonth ?? 0)
+                    setOcrModalOpen(true)
+                  } else {
+                    throw new Error('Falha ao processar receita.')
+                  }
+                } catch (ocrErr: any) {
+                  toast({
+                    title: 'Falha no OCR',
+                    description:
+                      ocrErr?.data?.error ||
+                      ocrErr?.message ||
+                      'Não foi possível ler o arquivo. Sua cota NÃO foi consumida.',
+                    variant: 'destructive',
+                  })
+                } finally {
+                  setOcrProcessing(false)
+                }
+              }}
+            />
+
+            <button
+              onClick={() => ocrInputRef.current?.click()}
+              disabled={ocrProcessing}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#F6F4EF] hover:bg-[#E7F0E3] text-[#26362B] border border-[#D9E2D4] text-sm font-semibold shadow-xs hover:shadow-md transition cursor-pointer disabled:opacity-50"
+              title="Ler receita com inteligência artificial e preencher medicamentos"
+            >
+              {ocrProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#4C7A5A]" />
+                  <span>Lendo receita...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-[#4C7A5A]" />
+                  <span>Ler receita com OCR</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={openNewForm}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-sm font-semibold shadow-md hover:shadow-lg transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo medicamento</span>
+            </button>
+          </div>
         ) : (
           <span className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full font-medium">
             {isReadOnly ? 'Plano Expirado — Somente Leitura' : 'Modo Somente Leitura'}
@@ -1367,6 +1442,28 @@ export default function Medicamentos() {
           setMedicoId(novoMedico.id)
         }}
       />
+
+      {/* Modal de OCR de Receitas com Revisão Obrigatória */}
+      {ocrModalOpen && ocrFile && ocrExtractedData && (
+        <OCRReviewModal
+          isOpen={ocrModalOpen}
+          onClose={() => {
+            setOcrModalOpen(false)
+            setOcrFile(null)
+            setOcrPreviewUrl('')
+            setOcrExtractedData(null)
+          }}
+          onConfirmed={() => {
+            triggerRefresh()
+          }}
+          file={ocrFile}
+          filePreviewUrl={ocrPreviewUrl}
+          extractedData={ocrExtractedData}
+          quotaRemaining={ocrQuotaRemaining}
+          profileId={activeProfile?.id || ''}
+          profileName={activeProfile?.nome || 'Titular'}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteModalOpen && medToDelete && (
