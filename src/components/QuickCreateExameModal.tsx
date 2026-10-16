@@ -12,8 +12,10 @@ const TIPOS: TipoExame[] = [
   'Sangue',
   'Imagem',
   'Urina',
-  'Cardiológico',
-  'Biópsia',
+  'Fezes',
+  'Cardíaco',
+  'Preventivo',
+  'Endoscopia/Biópsia',
   'Genético',
   'Outro',
 ]
