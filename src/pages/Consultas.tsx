@@ -47,6 +47,7 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
+  ShieldCheck,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatarData, formatarHora, extrairDataIso } from '@/lib/dateUtils'
@@ -86,6 +87,8 @@ export default function Consultas() {
   const [tipo, setTipo] = useState<TipoConsulta>('Presencial')
   const [local, setLocal] = useState('')
   const [status, setStatus] = useState<StatusConsulta>('Agendada')
+  const [numeroAutorizacao, setNumeroAutorizacao] = useState('')
+  const [validadeAutorizacao, setValidadeAutorizacao] = useState('')
   const [anotacoes, setAnotacoes] = useState('')
 
   // Structured Post-Consultation Fields
@@ -151,6 +154,8 @@ export default function Consultas() {
     setTipo('Presencial')
     setLocal('')
     setStatus('Agendada')
+    setNumeroAutorizacao('')
+    setValidadeAutorizacao('')
     setAnotacoes('')
 
     // Reset post-consultation
@@ -179,6 +184,8 @@ export default function Consultas() {
     setTipo(c.tipo)
     setLocal(c.local || '')
     setStatus(c.status)
+    setNumeroAutorizacao(c.numero_autorizacao || '')
+    setValidadeAutorizacao(extrairDataIso(c.validade_autorizacao))
     setAnotacoes(c.anotacoes || '')
 
     // Post-consultation
@@ -244,6 +251,8 @@ export default function Consultas() {
       formData.append('tipo', tipo)
       if (local.trim()) formData.append('local', local.trim())
       formData.append('status', status)
+      if (numeroAutorizacao.trim()) formData.append('numero_autorizacao', numeroAutorizacao.trim())
+      if (validadeAutorizacao) formData.append('validade_autorizacao', validadeAutorizacao)
       if (anotacoes.trim()) formData.append('anotacoes', anotacoes.trim())
 
       // Structured Post-Consultation Fields
@@ -540,6 +549,31 @@ export default function Consultas() {
                           </span>
                         )}
                       </div>
+
+                      {/* Autorização do Plano de Saúde */}
+                      {c.numero_autorizacao &&
+                        (() => {
+                          const validadeIso = extrairDataIso(c.validade_autorizacao)
+                          const hojeIso = extrairDataIso(new Date().toISOString())
+                          const isVencida = !!validadeIso && validadeIso < hojeIso
+                          return (
+                            <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E7F0E3] text-[#26362B] border border-[#DCE9D4]">
+                                <ShieldCheck className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                                <span>
+                                  Autorização: <strong>{c.numero_autorizacao}</strong>
+                                  {validadeIso && <> · válida até {formatDate(validadeIso)}</>}
+                                </span>
+                              </span>
+                              {isVencida && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                                  <AlertCircle className="w-3 h-3 text-amber-700" />
+                                  <span>Autorização vencida</span>
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
                     </div>
                   </div>
 
@@ -911,6 +945,48 @@ export default function Consultas() {
                       placeholder="Ex.: Consultório Jardins ou Google Meet"
                       className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                     />
+                  </div>
+                </div>
+
+                {/* Subseção: Autorização do Plano de Saúde */}
+                <div className="p-3.5 rounded-xl bg-white border border-[#D9E2D4] space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#4C7A5A]" />
+                    <div>
+                      <span className="text-xs font-semibold text-[#26362B] block">
+                        Autorização do plano de saúde
+                      </span>
+                      <span className="text-[11px] text-[#6B7A6F]">
+                        Preencha apenas se o procedimento exigir autorização
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#26362B] mb-1">
+                        Número da autorização (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={numeroAutorizacao}
+                        onChange={(e) => setNumeroAutorizacao(e.target.value)}
+                        placeholder="Ex.: 9823410, AUT-2026-778"
+                        className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#26362B] mb-1">
+                        Data de validade da autorização (opcional)
+                      </label>
+                      <input
+                        type="date"
+                        value={validadeAutorizacao}
+                        onChange={(e) => setValidadeAutorizacao(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -286,19 +286,25 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
   const consultasAgendadas = (data.consultas || []).filter((c) => c.status === 'Agendada')
   const consultRows =
     consultasAgendadas.length > 0
-      ? consultasAgendadas.map((c) => [
-          formatarData(c.data),
-          formatarHora(c.horario) || '—',
-          c.expand?.medico?.nome || 'Médico não informado',
-          c.expand?.medico?.especialidade || '—',
-          c.tipo,
-          c.local || '—',
-        ])
-      : [['Nenhuma consulta agendada encontrada.', '', '', '', '', '']]
+      ? consultasAgendadas.map((c) => {
+          const aut = c.numero_autorizacao
+            ? `${c.numero_autorizacao}${c.validade_autorizacao ? ` (até ${formatarData(c.validade_autorizacao)})` : ''}`
+            : '—'
+          return [
+            formatarData(c.data),
+            formatarHora(c.horario) || '—',
+            c.expand?.medico?.nome || 'Médico não informado',
+            c.expand?.medico?.especialidade || '—',
+            c.tipo,
+            c.local || '—',
+            aut,
+          ]
+        })
+      : [['Nenhuma consulta agendada encontrada.', '', '', '', '', '', '']]
 
   autoTable(doc, {
     startY: startY,
-    head: [['Data', 'Horário', 'Profissional', 'Especialidade', 'Tipo', 'Local']],
+    head: [['Data', 'Horário', 'Profissional', 'Especialidade', 'Tipo', 'Local', 'Autorização']],
     body: consultRows,
     theme: 'striped',
     headStyles: {
@@ -339,19 +345,25 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
   )
   const examesRows =
     examesAbertos.length > 0
-      ? examesAbertos.map((e) => [
-          e.nome,
-          e.tipo,
-          e.status,
-          formatarData(e.data_solicitado),
-          e.data_hora_agendada ? formatarDataHora(e.data_hora_agendada) : 'Não agendado',
-          e.local_realizacao || '—',
-        ])
-      : [['Nenhum exame pendente ou agendado no momento.', '', '', '', '', '']]
+      ? examesAbertos.map((e) => {
+          const aut = e.numero_autorizacao
+            ? `${e.numero_autorizacao}${e.validade_autorizacao ? ` (até ${formatarData(e.validade_autorizacao)})` : ''}`
+            : '—'
+          return [
+            e.nome,
+            e.tipo,
+            e.status,
+            formatarData(e.data_solicitado),
+            e.data_hora_agendada ? formatarDataHora(e.data_hora_agendada) : 'Não agendado',
+            e.local_realizacao || '—',
+            aut,
+          ]
+        })
+      : [['Nenhum exame pendente ou agendado no momento.', '', '', '', '', '', '']]
 
   autoTable(doc, {
     startY: startY,
-    head: [['Exame', 'Tipo', 'Status', 'Solicitado em', 'Agendamento', 'Local']],
+    head: [['Exame', 'Tipo', 'Status', 'Solicitado em', 'Agendamento', 'Local', 'Autorização']],
     body: examesRows,
     theme: 'striped',
     headStyles: {
@@ -573,16 +585,22 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
     })
   } else {
     // Para consultas, renderizamos uma tabela de visão geral e detalhamento dos pós-consultas estruturados
-    const resumoRows = consultas.map((c) => [
-      formatarData(c.data),
-      formatarHora(c.horario) || '—',
-      c.status,
-      c.expand?.medico?.nome || 'Médico não informado',
-      c.expand?.medico?.especialidade || '—',
-      c.tipo,
-      c.local || '—',
-      c.motivo_atendimento || c.anotacoes || '—',
-    ])
+    const resumoRows = consultas.map((c) => {
+      const aut = c.numero_autorizacao
+        ? `${c.numero_autorizacao}${c.validade_autorizacao ? ` (até ${formatarData(c.validade_autorizacao)})` : ''}`
+        : '—'
+      return [
+        formatarData(c.data),
+        formatarHora(c.horario) || '—',
+        c.status,
+        c.expand?.medico?.nome || 'Médico não informado',
+        c.expand?.medico?.especialidade || '—',
+        c.tipo,
+        c.local || '—',
+        aut,
+        c.motivo_atendimento || c.anotacoes || '—',
+      ]
+    })
 
     autoTable(doc, {
       startY: startY,
@@ -595,6 +613,7 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
           'Especialidade',
           'Tipo',
           'Local',
+          'Autorização',
           'Motivo / Anotação',
         ],
       ],
@@ -612,14 +631,15 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
         cellPadding: 2.2,
       },
       columnStyles: {
-        0: { cellWidth: 18 },
-        1: { cellWidth: 14 },
-        2: { cellWidth: 18 },
-        3: { cellWidth: 28 },
-        4: { cellWidth: 24 },
-        5: { cellWidth: 20 },
-        6: { cellWidth: 24 },
-        7: { cellWidth: 36 },
+        0: { cellWidth: 17 },
+        1: { cellWidth: 13 },
+        2: { cellWidth: 16 },
+        3: { cellWidth: 26 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 20 },
+        7: { cellWidth: 24 },
+        8: { cellWidth: 26 },
       },
       margin: { left: 14, right: 14 },
     })
@@ -735,9 +755,22 @@ export function exportarExamesPDF(data: ExportDataPayload): void {
           const observacoes =
             [e.instrucoes_preparo, e.observacoes].filter(Boolean).join(' | ') || '—'
 
-          return [e.nome, e.tipo, e.status, datas, e.local_realizacao || '—', medico, observacoes]
+          const aut = e.numero_autorizacao
+            ? `${e.numero_autorizacao}${e.validade_autorizacao ? ` (até ${formatarData(e.validade_autorizacao)})` : ''}`
+            : '—'
+
+          return [
+            e.nome,
+            e.tipo,
+            e.status,
+            datas,
+            aut,
+            e.local_realizacao || '—',
+            medico,
+            observacoes,
+          ]
         })
-      : [['Nenhum exame cadastrado.', '', '', '', '', '', '']]
+      : [['Nenhum exame cadastrado.', '', '', '', '', '', '', '']]
 
   autoTable(doc, {
     startY: 56,
@@ -747,6 +780,7 @@ export function exportarExamesPDF(data: ExportDataPayload): void {
         'Tipo',
         'Status (5 estados)',
         'Datas de Acompanhamento',
+        'Autorização',
         'Local',
         'Médico Solicitante',
         'Preparo / Observações',
@@ -766,13 +800,14 @@ export function exportarExamesPDF(data: ExportDataPayload): void {
       cellPadding: 2.5,
     },
     columnStyles: {
-      0: { cellWidth: 32 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 32 },
-      4: { cellWidth: 26 },
-      5: { cellWidth: 26 },
-      6: { cellWidth: 30 },
+      0: { cellWidth: 28 },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 24 },
+      5: { cellWidth: 22 },
+      6: { cellWidth: 22 },
+      7: { cellWidth: 26 },
     },
     alternateRowStyles: {
       fillColor: [246, 248, 245],
@@ -989,19 +1024,27 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
   const consultas = data.consultas || []
   const consultRows =
     consultas.length > 0
-      ? consultas.map((c) => [
-          formatarData(c.data),
-          formatarHora(c.horario) || '—',
-          c.status,
-          c.expand?.medico?.nome || '—',
-          c.tipo,
-          c.motivo_atendimento || c.anotacoes || '—',
-        ])
-      : [['Nenhuma consulta registrada.', '', '', '', '', '']]
+      ? consultas.map((c) => {
+          const aut = c.numero_autorizacao
+            ? `${c.numero_autorizacao}${c.validade_autorizacao ? ` (até ${formatarData(c.validade_autorizacao)})` : ''}`
+            : '—'
+          return [
+            formatarData(c.data),
+            formatarHora(c.horario) || '—',
+            c.status,
+            c.expand?.medico?.nome || '—',
+            c.tipo,
+            aut,
+            c.motivo_atendimento || c.anotacoes || '—',
+          ]
+        })
+      : [['Nenhuma consulta registrada.', '', '', '', '', '', '']]
 
   autoTable(doc, {
     startY,
-    head: [['Data', 'Horário', 'Status', 'Profissional', 'Tipo', 'Motivo / Anotação']],
+    head: [
+      ['Data', 'Horário', 'Status', 'Profissional', 'Tipo', 'Autorização', 'Motivo / Anotação'],
+    ],
     body: consultRows,
     theme: 'striped',
     headStyles: { fillColor: BRAND_PRIMARY, textColor: [255, 255, 255], fontSize: 8 },
@@ -1027,19 +1070,25 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
   const exames = data.exames || []
   const examesRows =
     exames.length > 0
-      ? exames.map((e) => [
-          e.nome,
-          e.tipo,
-          e.status,
-          formatarData(e.data_solicitado),
-          e.data_realizado ? formatarData(e.data_realizado) : '—',
-          e.local_realizacao || '—',
-        ])
-      : [['Nenhum exame registrado.', '', '', '', '', '']]
+      ? exames.map((e) => {
+          const aut = e.numero_autorizacao
+            ? `${e.numero_autorizacao}${e.validade_autorizacao ? ` (até ${formatarData(e.validade_autorizacao)})` : ''}`
+            : '—'
+          return [
+            e.nome,
+            e.tipo,
+            e.status,
+            formatarData(e.data_solicitado),
+            e.data_realizado ? formatarData(e.data_realizado) : '—',
+            e.local_realizacao || '—',
+            aut,
+          ]
+        })
+      : [['Nenhum exame registrado.', '', '', '', '', '', '']]
 
   autoTable(doc, {
     startY,
-    head: [['Exame', 'Tipo', 'Status', 'Solicitado', 'Realizado', 'Local']],
+    head: [['Exame', 'Tipo', 'Status', 'Solicitado', 'Realizado', 'Local', 'Autorização']],
     body: examesRows,
     theme: 'striped',
     headStyles: { fillColor: BRAND_PRIMARY, textColor: [255, 255, 255], fontSize: 8 },
@@ -1175,6 +1224,8 @@ export function exportarConsultasCSV(data: ExportDataPayload): void {
     'CRM',
     'Tipo',
     'Local',
+    'Número da Autorização',
+    'Validade da Autorização',
     'Motivo do Atendimento',
     'Sintomas Relatados',
     'Assuntos Tratados',
@@ -1198,6 +1249,8 @@ export function exportarConsultasCSV(data: ExportDataPayload): void {
         c.expand?.medico?.crm || '',
         c.tipo,
         c.local || '',
+        c.numero_autorizacao || '',
+        formatarData(c.validade_autorizacao),
         c.motivo_atendimento || '',
         c.sintomas_relatados || '',
         c.assuntos_tratados || '',
@@ -1226,6 +1279,8 @@ export function exportarExamesCSV(data: ExportDataPayload): void {
     'Data/Hora Agendada',
     'Data Realizado',
     'Data Disponibilização Resultado',
+    'Número da Autorização',
+    'Validade da Autorização',
     'Médico Solicitante',
     'Local de Realização',
     'Instruções de Preparo',
@@ -1243,6 +1298,8 @@ export function exportarExamesCSV(data: ExportDataPayload): void {
         e.data_hora_agendada ? formatarDataHora(e.data_hora_agendada) : '',
         formatarData(e.data_realizado),
         formatarData(e.data_disponibilizacao_resultado),
+        e.numero_autorizacao || '',
+        formatarData(e.validade_autorizacao),
         e.expand?.medico?.nome || '',
         e.local_realizacao || '',
         e.instrucoes_preparo || '',

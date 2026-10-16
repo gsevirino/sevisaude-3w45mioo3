@@ -122,6 +122,8 @@ export default function Exames() {
   const [dataRealizado, setDataRealizado] = useState('')
   const [dataDisponibilizacaoResultado, setDataDisponibilizacaoResultado] = useState('')
   const [status, setStatus] = useState<StatusExame>('Pendente')
+  const [numeroAutorizacao, setNumeroAutorizacao] = useState('')
+  const [validadeAutorizacao, setValidadeAutorizacao] = useState('')
   const [observacoes, setObservacoes] = useState('')
 
   // Files
@@ -184,6 +186,8 @@ export default function Exames() {
     setDataRealizado('')
     setDataDisponibilizacaoResultado('')
     setStatus('Pendente')
+    setNumeroAutorizacao('')
+    setValidadeAutorizacao('')
     setObservacoes('')
     setPedidosFiles([])
     setResultadosFiles([])
@@ -205,6 +209,8 @@ export default function Exames() {
     setDataRealizado(extrairDataIso(ex.data_realizado))
     setDataDisponibilizacaoResultado(extrairDataIso(ex.data_disponibilizacao_resultado))
     setStatus(ex.status)
+    setNumeroAutorizacao(ex.numero_autorizacao || '')
+    setValidadeAutorizacao(extrairDataIso(ex.validade_autorizacao))
     setObservacoes(ex.observacoes || '')
     setPedidosFiles([])
     setResultadosFiles([])
@@ -260,6 +266,8 @@ export default function Exames() {
       if (dataDisponibilizacaoResultado) {
         formData.append('data_disponibilizacao_resultado', dataDisponibilizacaoResultado)
       }
+      if (numeroAutorizacao.trim()) formData.append('numero_autorizacao', numeroAutorizacao.trim())
+      if (validadeAutorizacao) formData.append('validade_autorizacao', validadeAutorizacao)
       formData.append('status', status)
       if (observacoes.trim()) formData.append('observacoes', observacoes.trim())
 
@@ -719,6 +727,31 @@ export default function Exames() {
                         )}
                       </div>
 
+                      {/* Autorização do Plano de Saúde */}
+                      {ex.numero_autorizacao &&
+                        (() => {
+                          const validadeIso = extrairDataIso(ex.validade_autorizacao)
+                          const hojeIso = extrairDataIso(new Date().toISOString())
+                          const isVencida = !!validadeIso && validadeIso < hojeIso
+                          return (
+                            <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E7F0E3] text-[#26362B] border border-[#DCE9D4]">
+                                <ShieldCheck className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                                <span>
+                                  Autorização: <strong>{ex.numero_autorizacao}</strong>
+                                  {validadeIso && <> · válida até {formatDate(validadeIso)}</>}
+                                </span>
+                              </span>
+                              {isVencida && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                                  <AlertCircle className="w-3 h-3 text-amber-700" />
+                                  <span>Autorização vencida</span>
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
+
                       {/* Agendamento e Local */}
                       {(ex.data_hora_agendada || ex.local_realizacao) && (
                         <div className="flex flex-wrap items-center gap-4 text-xs text-[#26362B] mt-2 bg-[#F6F4EF]/70 p-2.5 rounded-xl border border-[#D9E2D4]/60">
@@ -1145,6 +1178,48 @@ export default function Exames() {
                     placeholder="Ex.: Jejum absoluto de 12 horas; beber 4 copos de água 1h antes; não suspender medicamentos..."
                     className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Seção: Autorização do Plano de Saúde */}
+              <div className="p-4 rounded-2xl bg-[#F6F4EF]/70 border border-[#D9E2D4] space-y-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#4C7A5A]" />
+                  <div>
+                    <span className="text-xs font-semibold text-[#26362B] block uppercase tracking-wider">
+                      Autorização do plano de saúde
+                    </span>
+                    <span className="text-[11px] text-[#6B7A6F]">
+                      Preencha apenas se o procedimento exigir autorização
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Número da autorização (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={numeroAutorizacao}
+                      onChange={(e) => setNumeroAutorizacao(e.target.value)}
+                      placeholder="Ex.: 9823410, AUT-2026-778"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Data de validade da autorização (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={validadeAutorizacao}
+                      onChange={(e) => setValidadeAutorizacao(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    />
+                  </div>
                 </div>
               </div>
 

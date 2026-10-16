@@ -249,6 +249,8 @@ export interface Consulta {
   anexos?: string[] | string
   medicamentos_relacionados_ids?: string[] | string
   exames_relacionados_ids?: string[] | string
+  numero_autorizacao?: string
+  validade_autorizacao?: string
   userId: string
   profile?: string
   created: string
@@ -299,6 +301,8 @@ export interface Exame {
   pedidos_arquivos?: string[]
   resultados_arquivos?: string[]
   historico_status?: HistoricoStatusExame[] | string
+  numero_autorizacao?: string
+  validade_autorizacao?: string
   userId: string
   profile?: string
   created: string
