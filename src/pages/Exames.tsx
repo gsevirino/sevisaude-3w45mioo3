@@ -473,10 +473,6 @@ export default function Exames() {
           <h1 className="font-serif italic text-3xl md:text-4xl text-[#26362B] font-semibold tracking-tight">
             Exames
           </h1>
-          <p className="text-[#6B7A6F] text-sm mt-1">
-            Gestão com 5 estados (Pendente, Agendado, Realizado, Finalizado e Cancelado), múltiplos
-            arquivos e preparo
-          </p>
         </div>
 
         {permissions.exames_editar && !isReadOnly ? (
