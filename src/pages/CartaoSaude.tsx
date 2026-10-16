@@ -9,7 +9,6 @@ import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import {
   CreditCard,
   Printer,
-  Clock,
   ShieldCheck,
   AlertTriangle,
   PhoneCall,
@@ -37,7 +36,6 @@ export default function CartaoSaude() {
   const [includeAlergias, setIncludeAlergias] = useState(true)
   const [includeCondicoes, setIncludeCondicoes] = useState(true)
   const [includeEmergencia, setIncludeEmergencia] = useState(true)
-  const [includeHorarios, setIncludeHorarios] = useState(true)
 
   // Modo de visualização: compacto (tamanho padrão cartão de visita / bancário frente e verso) vs ampliado (folha completa / expandido)
   const [formatoAmpliado, setFormatoAmpliado] = useState(false)
@@ -133,7 +131,7 @@ export default function CartaoSaude() {
         </div>
 
         {/* Opções globais */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
             <input
               type="checkbox"
@@ -162,16 +160,6 @@ export default function CartaoSaude() {
               className="rounded text-[#4C7A5A] focus:ring-[#4C7A5A]"
             />
             <span className="font-semibold text-[#26362B]">Contato de emergência</span>
-          </label>
-
-          <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
-            <input
-              type="checkbox"
-              checked={includeHorarios}
-              onChange={(e) => setIncludeHorarios(e.target.checked)}
-              className="rounded text-[#4C7A5A] focus:ring-[#4C7A5A]"
-            />
-            <span className="font-semibold text-[#26362B]">Horários de tomada</span>
           </label>
         </div>
 
@@ -356,10 +344,6 @@ export default function CartaoSaude() {
                         ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
                         : m.concentracao || m.dosagem || ''
                       const freqText = m.frequencia || ''
-                      const horarios =
-                        includeHorarios && Array.isArray(m.horarios) && m.horarios.length > 0
-                          ? m.horarios.join(', ')
-                          : ''
 
                       return (
                         <div
@@ -373,11 +357,6 @@ export default function CartaoSaude() {
                               {freqText ? `• ${freqText}` : ''}
                             </span>
                           </div>
-                          {horarios && (
-                            <span className="font-mono text-[9px] text-[#26362B] font-semibold bg-white px-1.5 py-0.5 rounded border border-[#D9E2D4] shrink-0">
-                              {horarios}
-                            </span>
-                          )}
                         </div>
                       )
                     })
@@ -477,7 +456,6 @@ export default function CartaoSaude() {
                       <th className="p-3">Medicamento</th>
                       <th className="p-3">Dose / Via</th>
                       <th className="p-3">Frequência</th>
-                      {includeHorarios && <th className="p-3">Horários</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#D9E2D4]">
@@ -498,11 +476,6 @@ export default function CartaoSaude() {
                           {m.via_administracao && ` • ${m.via_administracao}`}
                         </td>
                         <td className="p-3">{m.frequencia || 'Conforme receita'}</td>
-                        {includeHorarios && (
-                          <td className="p-3 font-mono text-[#4C7A5A]">
-                            {Array.isArray(m.horarios) ? m.horarios.join(', ') : '—'}
-                          </td>
-                        )}
                       </tr>
                     ))}
                   </tbody>
