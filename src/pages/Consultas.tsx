@@ -23,6 +23,8 @@ import { useSubscription } from '@/context/SubscriptionContext'
 import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
+import { QuickCreateSelect } from '@/components/QuickCreateSelect'
+import { QuickCreateMedicoModal } from '@/components/QuickCreateMedicoModal'
 import {
   CalendarCheck,
   Plus,
@@ -79,6 +81,7 @@ export default function Consultas() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingConsulta, setEditingConsulta] = useState<Consulta | null>(null)
   const [saving, setSaving] = useState(false)
+  const [quickMedicoModalOpen, setQuickMedicoModalOpen] = useState(false)
 
   // Basic Fields
   const [medicoId, setMedicoId] = useState('')
@@ -854,22 +857,32 @@ export default function Consultas() {
                 </span>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                    Médico / Profissional de saúde <span className="text-red-500">*</span>
-                  </label>
-                  <select
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-[#26362B]">
+                      Médico / Profissional de saúde <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setQuickMedicoModalOpen(true)}
+                      className="text-[11px] font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
+                    >
+                      + Cadastrar novo
+                    </button>
+                  </div>
+                  <QuickCreateSelect
                     required
                     value={medicoId}
-                    onChange={(e) => setMedicoId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
-                  >
-                    <option value="">Selecione o profissional...</option>
-                    {medicos.map((doc) => (
-                      <option key={doc.id} value={doc.id}>
-                        {doc.nome} — {doc.especialidade}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setMedicoId}
+                    placeholder="Selecione o profissional..."
+                    quickCreateLabel="+ Cadastrar novo profissional…"
+                    quickCreateHint="Adicione o médico sem fechar a consulta"
+                    onQuickCreate={() => setQuickMedicoModalOpen(true)}
+                    options={medicos.map((doc) => ({
+                      value: doc.id,
+                      label: doc.nome,
+                      sublabel: doc.especialidade,
+                    }))}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1279,6 +1292,19 @@ export default function Consultas() {
           </div>
         </div>
       )}
+
+      {/* Quick Create Médico Modal */}
+      <QuickCreateMedicoModal
+        open={quickMedicoModalOpen}
+        onClose={() => setQuickMedicoModalOpen(false)}
+        onSuccess={(novoMedico) => {
+          setMedicos((prev) => {
+            if (prev.some((m) => m.id === novoMedico.id)) return prev
+            return [novoMedico, ...prev]
+          })
+          setMedicoId(novoMedico.id)
+        }}
+      />
 
       {/* Delete Confirmation Modal */}
       {deleteModalOpen && consultaToDelete && (

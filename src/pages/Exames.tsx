@@ -22,6 +22,9 @@ import { useSubscription } from '@/context/SubscriptionContext'
 import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
+import { QuickCreateSelect } from '@/components/QuickCreateSelect'
+import { QuickCreateMedicoModal } from '@/components/QuickCreateMedicoModal'
+import { QuickCreateConsultaModal } from '@/components/QuickCreateConsultaModal'
 import {
   TestTube,
   Plus,
@@ -107,6 +110,8 @@ export default function Exames() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingExame, setEditingExame] = useState<Exame | null>(null)
   const [saving, setSaving] = useState(false)
+  const [quickMedicoModalOpen, setQuickMedicoModalOpen] = useState(false)
+  const [quickConsultaModalOpen, setQuickConsultaModalOpen] = useState(false)
 
   // Fields
   const [nome, setNome] = useState('')
@@ -1049,43 +1054,65 @@ export default function Exames() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                    Médico solicitante <span className="text-red-500">*</span>
-                  </label>
-                  <select
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-[#26362B]">
+                      Médico solicitante <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setQuickMedicoModalOpen(true)}
+                      className="text-[11px] font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
+                    >
+                      + Cadastrar novo
+                    </button>
+                  </div>
+                  <QuickCreateSelect
                     required
                     value={medicoId}
-                    onChange={(e) => setMedicoId(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
-                  >
-                    <option value="">Selecione o médico...</option>
-                    {medicos.map((doc) => (
-                      <option key={doc.id} value={doc.id}>
-                        {doc.nome} — {doc.especialidade}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setMedicoId}
+                    placeholder="Selecione o médico..."
+                    quickCreateLabel="+ Cadastrar novo médico…"
+                    quickCreateHint="Adicione o solicitante sem sair do formulário"
+                    onQuickCreate={() => setQuickMedicoModalOpen(true)}
+                    options={medicos.map((doc) => ({
+                      value: doc.id,
+                      label: doc.nome,
+                      sublabel: doc.especialidade,
+                    }))}
+                  />
                 </div>
               </div>
 
               {/* Consulta relacionada */}
               <div>
-                <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                  Consulta relacionada (opcional)
-                </label>
-                <select
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-[#26362B]">
+                    Consulta relacionada (opcional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setQuickConsultaModalOpen(true)}
+                    className="text-[11px] font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
+                  >
+                    + Nova consulta
+                  </button>
+                </div>
+                <QuickCreateSelect
                   value={consultaRelacionadaId}
-                  onChange={(e) => setConsultaRelacionadaId(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none"
-                >
-                  <option value="">Nenhuma consulta vinculada</option>
-                  {consultas.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {formatDate(c.data)} — {c.expand?.medico?.nome || 'Médico'} (
-                      {c.motivo_atendimento || c.tipo})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setConsultaRelacionadaId}
+                  allowEmpty
+                  emptyOptionLabel="Nenhuma consulta vinculada"
+                  emptyValue=""
+                  placeholder="Selecione uma consulta ou deixe em branco..."
+                  quickCreateLabel="+ Cadastrar nova consulta…"
+                  quickCreateHint="Vincule a consulta de origem deste exame"
+                  onQuickCreate={() => setQuickConsultaModalOpen(true)}
+                  options={consultas.map((c) => ({
+                    value: c.id,
+                    label: `${formatDate(c.data)} — ${c.expand?.medico?.nome || 'Médico'}`,
+                    sublabel: c.motivo_atendimento || c.tipo,
+                  }))}
+                />
               </div>
 
               {/* Datas e Status */}
@@ -1403,6 +1430,41 @@ export default function Exames() {
           </div>
         </div>
       )}
+
+      {/* Quick Create Médico Modal */}
+      <QuickCreateMedicoModal
+        open={quickMedicoModalOpen}
+        onClose={() => setQuickMedicoModalOpen(false)}
+        onSuccess={(novoMedico) => {
+          setMedicos((prev) => {
+            if (prev.some((m) => m.id === novoMedico.id)) return prev
+            return [novoMedico, ...prev]
+          })
+          setMedicoId(novoMedico.id)
+        }}
+      />
+
+      {/* Quick Create Consulta Modal */}
+      <QuickCreateConsultaModal
+        open={quickConsultaModalOpen}
+        medicos={medicos}
+        onClose={() => setQuickConsultaModalOpen(false)}
+        onOpenNewMedico={() => {
+          setQuickConsultaModalOpen(false)
+          setQuickMedicoModalOpen(true)
+        }}
+        onSuccess={(novaConsulta) => {
+          setConsultas((prev) => {
+            if (prev.some((c) => c.id === novaConsulta.id)) return prev
+            return [novaConsulta, ...prev]
+          })
+          setConsultaRelacionadaId(novaConsulta.id)
+          // Se o exame ainda não tiver médico preenchido, preenche com o médico da consulta
+          if (!medicoId && novaConsulta.medico) {
+            setMedicoId(novaConsulta.medico)
+          }
+        }}
+      />
 
       {/* Delete Confirmation Modal */}
       {deleteModalOpen && exameToDelete && (
