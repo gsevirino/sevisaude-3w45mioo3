@@ -59,7 +59,6 @@ export const HealthProfileProvider: React.FC<{ children: React.ReactNode }> = ({
             nome: user.name || 'Titular',
             parentesco: 'titular',
             is_proprio: true,
-            cor_tema: '#4C7A5A',
             data_nascimento: user.meta?.dataNascimento || '',
             tipo_sanguineo: undefined,
             alergias: user.alergias || '',
