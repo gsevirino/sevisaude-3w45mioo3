@@ -1,5 +1,10 @@
 import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import * as autoTableModule from 'jspdf-autotable'
+
+// Interop ESM/CJS resiliente para jspdf-autotable em bundlers como Vite/Rollup
+const autoTable: any =
+  (autoTableModule as any).default ?? (autoTableModule as any).autoTable ?? autoTableModule
+
 import {
   formatarData,
   formatarHora,
