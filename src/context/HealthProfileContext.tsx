@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import type { HealthProfile, ProfilePermissions, ProfileAccessGrant } from '@/types/health'
 import {
   getHealthProfiles,
+  createHealthProfile,
   getGrantForProfile,
   DEFAULT_PERMISSIONS_FULL,
   DEFAULT_PERMISSIONS_READONLY,
@@ -46,19 +47,42 @@ export const HealthProfileProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setIsLoadingProfiles(true)
     try {
-      const list = await getHealthProfiles()
-      setProfiles(list)
+      let list = await getHealthProfiles()
 
       // Identificar titular próprio da conta
-      const ownProfile = list.find((p) => p.user === user.id && p.is_proprio)
+      let ownProfile = list.find((p) => p.user === user.id && p.is_proprio)
 
-      // Checar se precisa de onboarding (usuário novo sem titular próprio ou flag onboardingCompleted ausente)
+      // Se o usuário não tem perfil próprio cadastrado, cria automaticamente
+      if (!ownProfile) {
+        try {
+          const newOwn = await createHealthProfile({
+            nome: user.name || 'Titular',
+            parentesco: 'titular',
+            is_proprio: true,
+            cor_tema: '#4C7A5A',
+            data_nascimento: user.meta?.dataNascimento || '',
+            tipo_sanguineo: undefined,
+            alergias: user.alergias || '',
+            condicoes_saude: user.condicoes_saude || '',
+            contato_emergencia_nome:
+              user.contato_emergencia_nome || user.meta?.contatoEmergenciaNome || '',
+            contato_emergencia_telefone:
+              user.contato_emergencia_telefone || user.meta?.contatoEmergenciaTelefone || '',
+            contato_emergencia_parentesco:
+              user.contato_emergencia_parentesco || user.meta?.contatoEmergenciaParentesco || '',
+          })
+          list = [newOwn, ...list]
+          ownProfile = newOwn
+        } catch (createErr) {
+          console.warn('Não foi possível auto-criar health_profile do titular:', createErr)
+        }
+      }
+
+      setProfiles(list)
+
+      // Checar se precisa de onboarding (usuário novo sem flag onboardingCompleted)
       const hasCompleted = user.meta?.onboardingCompleted
-      if (
-        !hasCompleted &&
-        (!ownProfile ||
-          (list.length === 1 && ownProfile && !user.alergias && !user.condicoes_saude))
-      ) {
+      if (!hasCompleted) {
         setNeedsOnboarding(true)
       } else {
         setNeedsOnboarding(false)

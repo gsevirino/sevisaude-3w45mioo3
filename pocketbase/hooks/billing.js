@@ -92,8 +92,61 @@ onRecordCreate((e) => {
         sub.set('data_fim', trialEnd.toISOString().split('T')[0])
         e.app.save(sub)
       }
+
+      // Garantir criação automática do health_profile do titular principal
+      let existingProfile
+      try {
+        existingProfile = e.app.findFirstRecordByFilter(
+          'health_profiles',
+          'user = "' + userId + '" && is_proprio = true',
+        )
+      } catch (_) {
+        try {
+          existingProfile = e.app.findFirstRecordByFilter(
+            'health_profiles',
+            'user = "' + userId + '"',
+          )
+        } catch (__) {}
+      }
+
+      if (!existingProfile) {
+        const profCol = e.app.findCollectionByNameOrId('health_profiles')
+        const prof = new Record(profCol)
+        const userName = (e.record.getString('name') || '').trim() || 'Titular'
+        const metaRaw = e.record.get('meta') || {}
+        let metaObj = {}
+        if (typeof metaRaw === 'string') {
+          try {
+            metaObj = JSON.parse(metaRaw)
+          } catch (_) {}
+        } else if (metaRaw && typeof metaRaw === 'object') {
+          metaObj = metaRaw
+        }
+
+        prof.set('user', userId)
+        prof.set('nome', userName)
+        prof.set('parentesco', 'titular')
+        prof.set('is_proprio', true)
+        prof.set('cor_tema', '#4C7A5A')
+        if (metaObj.dataNascimento) {
+          prof.set('data_nascimento', metaObj.dataNascimento)
+        }
+        if (metaObj.contatoEmergenciaNome) {
+          prof.set('contato_emergencia_nome', metaObj.contatoEmergenciaNome)
+        }
+        if (metaObj.contatoEmergenciaTelefone) {
+          prof.set('contato_emergencia_telefone', metaObj.contatoEmergenciaTelefone)
+        }
+        if (metaObj.contatoEmergenciaParentesco) {
+          prof.set('contato_emergencia_parentesco', metaObj.contatoEmergenciaParentesco)
+        }
+        e.app.save(prof)
+      }
     } catch (err) {
-      console.error('[Billing] Erro ao instanciar trial de novo usuário:', err)
+      console.error(
+        '[Billing/Profile] Erro ao instanciar trial ou perfil titular de novo usuário:',
+        err,
+      )
     }
   }
 })

@@ -38,7 +38,7 @@ import { toast } from '@/hooks/use-toast'
 
 export default function Perfil() {
   const { user } = useAuth()
-  const { activeProfile, refreshProfiles } = useHealthProfile()
+  const { activeProfile, profiles, refreshProfiles } = useHealthProfile()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const initialTab =
@@ -91,17 +91,36 @@ export default function Perfil() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingSecurity, setSavingSecurity] = useState(false)
 
+  // Localizar perfil titular próprio
+  const ownProfile =
+    profiles.find((p) => user && p.user === user.id && p.is_proprio) || activeProfile
+
   useEffect(() => {
     if (user) {
-      setName(user.name || '')
+      setName(user.name || ownProfile?.nome || '')
       setEmail(user.email || '')
       setTelefone(user.meta?.telefone || '')
-      setDataNascimento(user.meta?.dataNascimento || '')
-      setAlergias(user.alergias || '')
-      setCondicoesSaude(user.condicoes_saude || '')
-      setContatoEmergenciaNome(user.contato_emergencia_nome || '')
-      setContatoEmergenciaTelefone(user.contato_emergencia_telefone || '')
-      setContatoEmergenciaParentesco(user.contato_emergencia_parentesco || '')
+      setDataNascimento(ownProfile?.data_nascimento || user.meta?.dataNascimento || '')
+      setAlergias(ownProfile?.alergias || user.alergias || '')
+      setCondicoesSaude(ownProfile?.condicoes_saude || user.condicoes_saude || '')
+      setContatoEmergenciaNome(
+        ownProfile?.contato_emergencia_nome ||
+          user.contato_emergencia_nome ||
+          user.meta?.contatoEmergenciaNome ||
+          '',
+      )
+      setContatoEmergenciaTelefone(
+        ownProfile?.contato_emergencia_telefone ||
+          user.contato_emergencia_telefone ||
+          user.meta?.contatoEmergenciaTelefone ||
+          '',
+      )
+      setContatoEmergenciaParentesco(
+        ownProfile?.contato_emergencia_parentesco ||
+          user.contato_emergencia_parentesco ||
+          user.meta?.contatoEmergenciaParentesco ||
+          '',
+      )
       setLembreteMedicamentos(user.meta?.lembreteMedicamentos ?? true)
       setLembreteConsultas(user.meta?.lembreteConsultas ?? true)
       setLembreteExames(user.meta?.lembreteExames ?? true)
@@ -120,7 +139,7 @@ export default function Perfil() {
         }
       })
     }
-  }, [user])
+  }, [user, ownProfile])
 
   const loadJobsHistory = async () => {
     setLoadingJobs(true)
@@ -147,11 +166,15 @@ export default function Perfil() {
         ...(user.meta || {}),
         telefone,
         dataNascimento,
+        contatoEmergenciaNome,
+        contatoEmergenciaTelefone,
+        contatoEmergenciaParentesco,
         lembreteMedicamentos,
         lembreteConsultas,
         lembreteExames,
       }
 
+      // 1. Atualizar registro do usuário em users
       await pb.collection('users').update(user.id, {
         name,
         alergias,
@@ -162,8 +185,26 @@ export default function Perfil() {
         meta: updatedMeta,
       })
 
-      // Refresh auth store model
+      // 2. Sincronizar com o perfil de titular próprio em health_profiles
+      if (ownProfile) {
+        try {
+          await pb.collection('health_profiles').update(ownProfile.id, {
+            nome: name.trim() || ownProfile.nome,
+            data_nascimento: dataNascimento,
+            alergias,
+            condicoes_saude: condicoesSaude,
+            contato_emergencia_nome: contatoEmergenciaNome,
+            contato_emergencia_telefone: contatoEmergenciaTelefone,
+            contato_emergencia_parentesco: contatoEmergenciaParentesco,
+          })
+        } catch (hpErr) {
+          console.warn('Erro ao sincronizar health_profile titular:', hpErr)
+        }
+      }
+
+      // Refresh auth store model e lista de perfis
       await pb.collection('users').authRefresh()
+      await refreshProfiles()
 
       toast({
         title: 'Perfil atualizado!',

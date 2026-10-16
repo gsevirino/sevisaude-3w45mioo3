@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
 import { Heart, UserCheck, Pill, Users, ArrowRight, Check, Shield, Sparkles } from 'lucide-react'
 import { SeviSaudeIcon } from '@/components/SeviSaudeLogo'
-import { updateHealthProfile } from '@/services/healthProfileService'
+import { createHealthProfile, updateHealthProfile } from '@/services/healthProfileService'
+import { pb } from '@/lib/pocketbase/client'
 import { toast } from '@/hooks/use-toast'
 
 interface OnboardingModalProps {
@@ -12,39 +13,148 @@ interface OnboardingModalProps {
 
 export default function OnboardingModal({ onClose }: OnboardingModalProps) {
   const { user } = useAuth()
-  const { activeProfile, refreshProfiles, completeOnboarding } = useHealthProfile()
+  const { activeProfile, profiles, refreshProfiles, completeOnboarding } = useHealthProfile()
   const [step, setStep] = useState<number>(1)
   const [loading, setLoading] = useState<boolean>(false)
 
+  // Localizar perfil próprio ou ativo
+  const ownProfile =
+    profiles.find((p) => user && p.user === user.id && p.is_proprio) || activeProfile
+
   // Step 1: Confirmar dados básicos do titular
-  const [nome, setNome] = useState(activeProfile?.nome || user?.name || '')
-  const [dataNascimento, setDataNascimento] = useState(activeProfile?.data_nascimento || '')
-  const [tipoSanguineo, setTipoSanguineo] = useState(activeProfile?.tipo_sanguineo || '')
-  const [alergias, setAlergias] = useState(activeProfile?.alergias || '')
-  const [condicoesSaude, setCondicoesSaude] = useState(activeProfile?.condicoes_saude || '')
+  const [nome, setNome] = useState(ownProfile?.nome || (user?.name ? user.name : ''))
+  const [dataNascimento, setDataNascimento] = useState(
+    ownProfile?.data_nascimento || (user?.meta?.dataNascimento ? user.meta.dataNascimento : ''),
+  )
+  const [tipoSanguineo, setTipoSanguineo] = useState(ownProfile?.tipo_sanguineo || '')
+  const [alergias, setAlergias] = useState(ownProfile?.alergias || user?.alergias || '')
+  const [condicoesSaude, setCondicoesSaude] = useState(
+    ownProfile?.condicoes_saude || user?.condicoes_saude || '',
+  )
 
   // Step 2: Informações de emergência opcionais
-  const [contatoNome, setContatoNome] = useState(activeProfile?.contato_emergencia_nome || '')
+  const [contatoNome, setContatoNome] = useState(
+    ownProfile?.contato_emergencia_nome ||
+      user?.contato_emergencia_nome ||
+      user?.meta?.contatoEmergenciaNome ||
+      '',
+  )
   const [contatoTelefone, setContatoTelefone] = useState(
-    activeProfile?.contato_emergencia_telefone || '',
+    ownProfile?.contato_emergencia_telefone ||
+      user?.contato_emergencia_telefone ||
+      user?.meta?.contatoEmergenciaTelefone ||
+      '',
   )
   const [contatoParentesco, setContatoParentesco] = useState(
-    activeProfile?.contato_emergencia_parentesco || '',
+    ownProfile?.contato_emergencia_parentesco ||
+      user?.contato_emergencia_parentesco ||
+      user?.meta?.contatoEmergenciaParentesco ||
+      '',
   )
 
+  // Atualizar os campos quando ownProfile ou user forem carregados se estiverem vazios
+  useEffect(() => {
+    if (ownProfile) {
+      if (!nome && ownProfile.nome) setNome(ownProfile.nome)
+      if (!dataNascimento && ownProfile.data_nascimento)
+        setDataNascimento(ownProfile.data_nascimento)
+      if (!tipoSanguineo && ownProfile.tipo_sanguineo) setTipoSanguineo(ownProfile.tipo_sanguineo)
+      if (!alergias && ownProfile.alergias) setAlergias(ownProfile.alergias)
+      if (!condicoesSaude && ownProfile.condicoes_saude)
+        setCondicoesSaude(ownProfile.condicoes_saude)
+      if (!contatoNome && ownProfile.contato_emergencia_nome)
+        setContatoNome(ownProfile.contato_emergencia_nome)
+      if (!contatoTelefone && ownProfile.contato_emergencia_telefone)
+        setContatoTelefone(ownProfile.contato_emergencia_telefone)
+      if (!contatoParentesco && ownProfile.contato_emergencia_parentesco)
+        setContatoParentesco(ownProfile.contato_emergencia_parentesco)
+    }
+  }, [ownProfile])
+
+  // Helper para salvar tanto no health_profile quanto no users
+  const persistHealthData = async (dados: {
+    nome?: string
+    data_nascimento?: string
+    tipo_sanguineo?: string
+    alergias?: string
+    condicoes_saude?: string
+    contato_emergencia_nome?: string
+    contato_emergencia_telefone?: string
+    contato_emergencia_parentesco?: string
+  }) => {
+    if (!user) return
+
+    // 1. Salvar ou criar health_profile
+    let targetProfile = ownProfile
+    if (!targetProfile) {
+      try {
+        targetProfile = await createHealthProfile({
+          nome: dados.nome || nome.trim() || user.name || 'Titular',
+          parentesco: 'titular',
+          is_proprio: true,
+          data_nascimento: dados.data_nascimento ?? dataNascimento,
+          tipo_sanguineo: (dados.tipo_sanguineo ?? tipoSanguineo) as any,
+          alergias: dados.alergias ?? alergias,
+          condicoes_saude: dados.condicoes_saude ?? condicoesSaude,
+          contato_emergencia_nome: dados.contato_emergencia_nome ?? contatoNome,
+          contato_emergencia_telefone: dados.contato_emergencia_telefone ?? contatoTelefone,
+          contato_emergencia_parentesco: dados.contato_emergencia_parentesco ?? contatoParentesco,
+        })
+      } catch (err) {
+        console.warn('Erro ao criar perfil próprio no onboarding:', err)
+      }
+    } else {
+      try {
+        await updateHealthProfile(targetProfile.id, dados)
+      } catch (err) {
+        console.warn('Erro ao atualizar perfil próprio no onboarding:', err)
+      }
+    }
+
+    // 2. Sincronizar simultaneamente no registro do usuário (users)
+    try {
+      const updatedMeta = {
+        ...(user.meta || {}),
+        dataNascimento: dados.data_nascimento ?? dataNascimento,
+        contatoEmergenciaNome: dados.contato_emergencia_nome ?? contatoNome,
+        contatoEmergenciaTelefone: dados.contato_emergencia_telefone ?? contatoTelefone,
+        contatoEmergenciaParentesco: dados.contato_emergencia_parentesco ?? contatoParentesco,
+      }
+      const userUpdatePayload: Record<string, any> = {
+        meta: updatedMeta,
+      }
+      if (dados.nome) userUpdatePayload.name = dados.nome
+      if (dados.alergias !== undefined) userUpdatePayload.alergias = dados.alergias
+      if (dados.condicoes_saude !== undefined)
+        userUpdatePayload.condicoes_saude = dados.condicoes_saude
+      if (dados.contato_emergencia_nome !== undefined)
+        userUpdatePayload.contato_emergencia_nome = dados.contato_emergencia_nome
+      if (dados.contato_emergencia_telefone !== undefined)
+        userUpdatePayload.contato_emergencia_telefone = dados.contato_emergencia_telefone
+      if (dados.contato_emergencia_parentesco !== undefined)
+        userUpdatePayload.contato_emergencia_parentesco = dados.contato_emergencia_parentesco
+
+      await pb.collection('users').update(user.id, userUpdatePayload)
+      await pb.collection('users').authRefresh()
+    } catch (uErr) {
+      console.warn('Erro ao sincronizar dados no usuário (users):', uErr)
+    }
+  }
+
   const handleSaveStep1 = async (skip = false) => {
-    if (!skip && activeProfile) {
+    if (!skip) {
       setLoading(true)
       try {
-        await updateHealthProfile(activeProfile.id, {
-          nome: nome.trim() || activeProfile.nome,
+        await persistHealthData({
+          nome: nome.trim() || user?.name || 'Titular',
           data_nascimento: dataNascimento,
           tipo_sanguineo: tipoSanguineo,
           alergias,
           condicoes_saude: condicoesSaude,
         })
+        await refreshProfiles()
       } catch (err) {
-        console.warn('Erro ao atualizar titular no onboarding:', err)
+        console.warn('Erro ao persistir etapa 1 do onboarding:', err)
       } finally {
         setLoading(false)
       }
@@ -53,16 +163,17 @@ export default function OnboardingModal({ onClose }: OnboardingModalProps) {
   }
 
   const handleSaveStep2 = async (skip = false) => {
-    if (!skip && activeProfile) {
+    if (!skip) {
       setLoading(true)
       try {
-        await updateHealthProfile(activeProfile.id, {
+        await persistHealthData({
           contato_emergencia_nome: contatoNome,
           contato_emergencia_telefone: contatoTelefone,
           contato_emergencia_parentesco: contatoParentesco,
         })
+        await refreshProfiles()
       } catch (err) {
-        console.warn('Erro ao atualizar contato emergência no onboarding:', err)
+        console.warn('Erro ao persistir etapa 2 do onboarding:', err)
       } finally {
         setLoading(false)
       }
@@ -73,6 +184,17 @@ export default function OnboardingModal({ onClose }: OnboardingModalProps) {
   const handleFinish = async () => {
     setLoading(true)
     try {
+      // Garantir persistência final de todos os valores preenchidos
+      await persistHealthData({
+        nome: nome.trim() || user?.name || 'Titular',
+        data_nascimento: dataNascimento,
+        tipo_sanguineo: tipoSanguineo,
+        alergias,
+        condicoes_saude: condicoesSaude,
+        contato_emergencia_nome: contatoNome,
+        contato_emergencia_telefone: contatoTelefone,
+        contato_emergencia_parentesco: contatoParentesco,
+      })
       await completeOnboarding()
       await refreshProfiles()
       toast({
