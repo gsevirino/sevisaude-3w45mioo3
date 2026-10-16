@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { HeartPulse, ArrowRight, Loader2, Sparkles } from 'lucide-react'
+import { HeartPulse, ArrowRight, Loader2 } from 'lucide-react'
 import SeviSaudeLogo from '@/components/SeviSaudeLogo'
 import { toast } from '@/hooks/use-toast'
 
 export default function Login() {
-  const [email, setEmail] = useState('gislaine.sevirino@gmail.com')
-  const [password, setPassword] = useState('Skip@Pass')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -43,11 +43,6 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const fillDemo = () => {
-    setEmail('gislaine.sevirino@gmail.com')
-    setPassword('Skip@Pass')
   }
 
   return (
@@ -136,23 +131,6 @@ export default function Login() {
               )}
             </button>
           </form>
-
-          {/* Demo hint */}
-          <div className="mt-6 p-3.5 rounded-2xl bg-[#E7F0E3]/70 border border-[#DCE9D4] flex items-center justify-between text-xs text-[#26362B]">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#4C7A5A] shrink-0" />
-              <span>
-                Conta de demonstração pronta: <strong>gislaine.sevirino@gmail.com</strong>
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="text-[#4C7A5A] font-semibold underline hover:text-[#3F664C] shrink-0 ml-2 cursor-pointer"
-            >
-              Preencher
-            </button>
-          </div>
 
           <div className="mt-6 pt-6 border-t border-[#D9E2D4] text-center text-xs text-[#6B7A6F] space-y-2">
             <div>
