@@ -19,14 +19,6 @@ const TIPOS: TipoExame[] = [
   'Genético',
   'Outro',
 ]
-const CATEGORIAS_SUGERIDAS = [
-  'Laboratorial (Sangue/Urina)',
-  'Imagem (Raio-X, Tomografia, Ressonância)',
-  'Cardiológico (ECG, Eco, Holter)',
-  'Endoscopia / Colonoscopia',
-  'Oftalmológico',
-  'Outro',
-]
 
 interface QuickCreateExameModalProps {
   open: boolean
@@ -53,7 +45,6 @@ export function QuickCreateExameModal({
 
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState<TipoExame>('Sangue')
-  const [categoria, setCategoria] = useState('Laboratorial (Sangue/Urina)')
   const [medicoId, setMedicoId] = useState(defaultMedicoId || medicos[0]?.id || '')
   const [dataSolicitado, setDataSolicitado] = useState(() =>
     extrairDataIso(new Date().toISOString()),
@@ -105,7 +96,6 @@ export function QuickCreateExameModal({
       const formData = new FormData()
       formData.append('nome', nome.trim())
       formData.append('tipo', tipo)
-      if (categoria.trim()) formData.append('categoria', categoria.trim())
       formData.append('medico', medicoId)
       if (consultaId) formData.append('consulta_relacionada', consultaId)
       formData.append('data_solicitado', dataSolicitado)
@@ -225,42 +215,21 @@ export function QuickCreateExameModal({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                Tipo
-              </label>
-              <select
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as TipoExame)}
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-xs focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-              >
-                {TIPOS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
-                Categoria
-              </label>
-              <input
-                type="text"
-                list="quick-exame-cat"
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                placeholder="Ex.: Sangue, Imagem..."
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-xs focus:ring-2 focus:ring-[#4C7A5A] outline-none"
-              />
-              <datalist id="quick-exame-cat">
-                {CATEGORIAS_SUGERIDAS.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+              Tipo
+            </label>
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as TipoExame)}
+              className="w-full px-3.5 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-xs focus:ring-2 focus:ring-[#4C7A5A] outline-none"
+            >
+              {TIPOS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

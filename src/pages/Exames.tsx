@@ -76,18 +76,6 @@ const TIPOS: TipoExame[] = [
 
 const STATUS_LIST: StatusExame[] = ['Pendente', 'Agendado', 'Realizado', 'Finalizado', 'Cancelado']
 
-const CATEGORIAS_SUGERIDAS = [
-  'Laboratorial (Sangue/Urina)',
-  'Diagnóstico por Imagem',
-  'Cardiológico',
-  'Endoscópico / Digestivo',
-  'Ginecológico / Urológico',
-  'Oftalmológico',
-  'Genético / Molecular',
-  'Check-up Preventivo',
-  'Outro',
-]
-
 export default function Exames() {
   const { user } = useAuth()
   const { activeProfile, permissions, isOwner } = useHealthProfile()
@@ -102,7 +90,6 @@ export default function Exames() {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<StatusExame | 'Todos'>('Todos')
-  const [categoriaFilter, setCategoriaFilter] = useState('Todas')
   const [medicoFilter, setMedicoFilter] = useState('Todos')
   const [localFilter, setLocalFilter] = useState('Todos')
   const [searchQuery, setSearchQuery] = useState('')
@@ -188,7 +175,7 @@ export default function Exames() {
     setEditingExame(null)
     setNome('')
     setTipo('Sangue')
-    setCategoria('Laboratorial (Sangue/Urina)')
+    setCategoria('')
     setMedicoId(medicos[0]?.id || '')
     setConsultaRelacionadaId('')
     const today = extrairDataIso(new Date().toISOString())
@@ -465,9 +452,6 @@ export default function Exames() {
   const formatDateTime = (iso?: string) => formatarTimestampLocal(iso)
 
   // Obter listas únicas para os filtros
-  const categoriasUnicas = Array.from(
-    new Set(exames.map((e) => e.categoria).filter(Boolean)),
-  ) as string[]
   const locaisUnicos = Array.from(
     new Set(exames.map((e) => e.local_realizacao).filter(Boolean)),
   ) as string[]
@@ -478,12 +462,11 @@ export default function Exames() {
   // Filtros aplicados
   const filteredExames = exames.filter((ex) => {
     const matchesStatus = statusFilter === 'Todos' || ex.status === statusFilter
-    const matchesCat = categoriaFilter === 'Todas' || ex.categoria === categoriaFilter
     const matchesMed = medicoFilter === 'Todos' || ex.expand?.medico?.nome === medicoFilter
     const matchesLoc = localFilter === 'Todos' || ex.local_realizacao === localFilter
 
     const q = searchQuery.toLowerCase().trim()
-    if (!q) return matchesStatus && matchesCat && matchesMed && matchesLoc
+    if (!q) return matchesStatus && matchesMed && matchesLoc
 
     const matchNome = ex.nome?.toLowerCase().includes(q)
     const matchTipo = ex.tipo?.toLowerCase().includes(q)
@@ -494,7 +477,6 @@ export default function Exames() {
 
     return (
       matchesStatus &&
-      matchesCat &&
       matchesMed &&
       matchesLoc &&
       (matchNome || matchTipo || matchCat || matchDoc || matchLocal || matchPrep)
@@ -556,24 +538,7 @@ export default function Exames() {
         </div>
 
         {/* Secondary filters row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-[#D9E2D4]/50">
-          {/* Categoria */}
-          <div>
-            <label className="block text-[11px] font-semibold text-[#6B7A6F] mb-1">Categoria</label>
-            <select
-              value={categoriaFilter}
-              onChange={(e) => setCategoriaFilter(e.target.value)}
-              className="w-full px-3 py-1.5 rounded-xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs text-[#26362B]"
-            >
-              <option value="Todas">Todas as categorias</option>
-              {categoriasUnicas.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#D9E2D4]/50">
           {/* Médico */}
           <div>
             <label className="block text-[11px] font-semibold text-[#6B7A6F] mb-1">Médico</label>
@@ -642,7 +607,10 @@ export default function Exames() {
             Nenhum exame encontrado
           </h3>
           <p className="text-xs text-[#6B7A6F] mt-2">
-            {searchQuery || statusFilter !== 'Todos' || categoriaFilter !== 'Todas'
+            {searchQuery ||
+            statusFilter !== 'Todos' ||
+            medicoFilter !== 'Todos' ||
+            localFilter !== 'Todos'
               ? 'Tente relaxar os filtros aplicados.'
               : 'Cadastre os pedidos de exames médicos e acompanhe os preparos e laudos.'}
           </p>
@@ -1056,54 +1024,33 @@ export default function Exames() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                    Categoria do exame
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-[#26362B]">
+                    Médico solicitante <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    list="categorias-sugestoes"
-                    value={categoria}
-                    onChange={(e) => setCategoria(e.target.value)}
-                    placeholder="Ex.: Laboratorial (Sangue), Imagem..."
-                    className="w-full px-3 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
-                  />
-                  <datalist id="categorias-sugestoes">
-                    {CATEGORIAS_SUGERIDAS.map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
+                  <button
+                    type="button"
+                    onClick={() => setQuickMedicoModalOpen(true)}
+                    className="text-[11px] font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
+                  >
+                    + Cadastrar novo
+                  </button>
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-[#26362B]">
-                      Médico solicitante <span className="text-red-500">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setQuickMedicoModalOpen(true)}
-                      className="text-[11px] font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
-                    >
-                      + Cadastrar novo
-                    </button>
-                  </div>
-                  <QuickCreateSelect
-                    required
-                    value={medicoId}
-                    onChange={setMedicoId}
-                    placeholder="Selecione o médico..."
-                    quickCreateLabel="+ Cadastrar novo médico…"
-                    quickCreateHint="Adicione o solicitante sem sair do formulário"
-                    onQuickCreate={() => setQuickMedicoModalOpen(true)}
-                    options={medicos.map((doc) => ({
-                      value: doc.id,
-                      label: doc.nome,
-                      sublabel: doc.especialidade,
-                    }))}
-                  />
-                </div>
+                <QuickCreateSelect
+                  required
+                  value={medicoId}
+                  onChange={setMedicoId}
+                  placeholder="Selecione o médico..."
+                  quickCreateLabel="+ Cadastrar novo médico…"
+                  quickCreateHint="Adicione o solicitante sem sair do formulário"
+                  onQuickCreate={() => setQuickMedicoModalOpen(true)}
+                  options={medicos.map((doc) => ({
+                    value: doc.id,
+                    label: doc.nome,
+                    sublabel: doc.especialidade,
+                  }))}
+                />
               </div>
 
               {/* Consulta relacionada */}
