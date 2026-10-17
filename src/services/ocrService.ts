@@ -66,6 +66,7 @@ export async function processDocumentOcr(file: File, profileId: string): Promise
   const payload = {
     profileId,
     fileDataUrl,
+    fileName: file.name,
   }
 
   const res = await pb.send<OcrProcessResult>('/backend/v1/sevisaude/ocr/processar', {

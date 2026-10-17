@@ -622,12 +622,22 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;')
 }
 
+// Exportar para que handlers isolados possam carregar via require(`${__hooks}/notifications.js`) se necessário
+module.exports = {
+  processHealthReminders: processHealthReminders,
+  getUserNotificationPrefs: getUserNotificationPrefs,
+  getAuthorizedRecipients: getAuthorizedRecipients,
+}
+
 // -------------------------------------------------------------
 // Registro do Cron Job (a cada 15 minutos)
+// Nota: Em PocketBase JSVM, cada callback roda em escopo isolado.
+// Carregamos as funções deste mesmo arquivo via require(__filename ou `${__hooks}/notifications.js`).
 // -------------------------------------------------------------
 cronAdd('sevisaude_reminders_cron', '*/15 * * * *', () => {
   try {
-    processHealthReminders($app)
+    const mod = require(`${__hooks}/notifications.js`)
+    mod.processHealthReminders($app)
   } catch (err) {
     console.error('[SeviSaúde Lembretes] Erro fatal no cron job:', err)
   }
@@ -637,7 +647,8 @@ cronAdd('sevisaude_reminders_cron', '*/15 * * * *', () => {
 onBootstrap((e) => {
   e.next()
   try {
-    processHealthReminders(e.app)
+    const mod = require(`${__hooks}/notifications.js`)
+    mod.processHealthReminders(e.app)
   } catch (err) {
     console.error('[SeviSaúde Lembretes] Erro no processamento de bootstrap:', err)
   }
@@ -653,7 +664,8 @@ routerAdd(
   (e) => {
     try {
       const simulate = e.request.url.query().get('simulate') === 'true'
-      const res = processHealthReminders(e.app, { simulate: simulate })
+      const mod = require(`${__hooks}/notifications.js`)
+      const res = mod.processHealthReminders(e.app, { simulate: simulate })
       return e.json(200, {
         success: true,
         message: 'Lembretes processados com sucesso.',

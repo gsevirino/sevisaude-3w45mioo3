@@ -555,10 +555,22 @@ routerAdd(
         })
       }
 
-      // 5. Obter arquivo enviado (multipart form-data ou base64)
-      const files = e.findUploadedFiles('arquivo')
+      // 5. Obter arquivo enviado (multipart form-data ou JSON com base64 Data URL)
+      // findUploadedFiles só pode ser chamado se o Content-Type for multipart/form-data.
+      // Em requisições application/json, e.findUploadedFiles() lança exceção em Go:
+      // "request Content-Type isn't multipart/form-data".
+      let files = null
+      const contentType = ((e.request && e.request.header.get('Content-Type')) || '').toLowerCase()
+      if (contentType.indexOf('multipart/form-data') !== -1) {
+        try {
+          files = e.findUploadedFiles('arquivo')
+        } catch (fileErr) {
+          console.warn('[OCR] findUploadedFiles ignorado:', fileErr)
+        }
+      }
+
       let fileDataUrl = (body.fileDataUrl || '').trim()
-      let fileName = 'documento.jpg'
+      let fileName = (body.fileName || '').trim() || 'documento.jpg'
 
       if (files && files.length > 0) {
         fileName = files[0].name
@@ -566,9 +578,8 @@ routerAdd(
         return e.json(400, { error: 'Nenhum arquivo enviado para processamento.' })
       }
 
-      // 6. Preparar conteúdo para o Gateway de IA ($ai.chat ou chamada direta com SKIP_AI_GATEWAY_URL)
-      // O gateway suporta imagens via data:image/...;base64,... ou texto extraído via $documents
-      let imageContentItem = null
+      // 6. Preparar conteúdo para o Gateway de IA ($ai.chat)
+      // O gateway suporta imagens via data:image/...;base64,... e PDFs digitais via $documents
       let extractedMarkdownText = ''
 
       if (files && files.length > 0) {
@@ -579,9 +590,20 @@ routerAdd(
             const docRes = $documents.toMarkdown({ file: f })
             extractedMarkdownText = docRes.markdown || ''
           } catch (docErr) {
-            // Se for PDF escaneado (sem texto), podemos converter ou precisar de imagem
-            console.log('[OCR] $documents.toMarkdown para PDF:', docErr.message)
+            console.log('[OCR] $documents.toMarkdown para PDF multipart:', docErr.message)
           }
+        }
+      } else if (fileDataUrl.startsWith('data:application/pdf;base64,')) {
+        // Se for um PDF em base64 Data URL, tentar converter para texto com $documents.toMarkdown se possível
+        try {
+          const rawBase64 = fileDataUrl.replace(/^data:application\/pdf;base64,/, '')
+          if ($filesystem && $filesystem.fileFromBytes) {
+            const pdfFile = $filesystem.fileFromBytes(rawBase64, fileName || 'receita.pdf')
+            const docRes = $documents.toMarkdown({ file: pdfFile })
+            extractedMarkdownText = docRes.markdown || ''
+          }
+        } catch (pdfErr) {
+          console.log('[OCR] Tentativa de extração $documents via base64:', pdfErr.message)
         }
       }
 
