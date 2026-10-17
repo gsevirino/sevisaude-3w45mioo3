@@ -170,6 +170,19 @@ export type FormaFarmaceutica =
 export type StatusMedicamento = 'em uso' | 'pausado' | 'suspenso' | 'concluído'
 export type TipoUsoMedicamento = 'contínuo' | 'temporário'
 
+export type PeriodicidadeMedicamento =
+  | 'diária'
+  | 'semanal'
+  | 'quinzenal'
+  | 'mensal'
+  | 'semestral'
+  | 'temporário'
+
+export interface HorarioItem {
+  hora: string // HH:mm
+  quantidade?: number | null // opcional (ex: 4 pela manhã, 3 pela tarde)
+}
+
 export interface Medicamento {
   id: string
   nome: string
@@ -183,6 +196,8 @@ export interface Medicamento {
   frequencia?: string
   instrucoes_prescricao?: string
   tipo_uso?: TipoUsoMedicamento
+  periodicidade?: PeriodicidadeMedicamento
+  dia_referencia?: string // Ex: "segunda", "15" ou "YYYY-MM-DD"
   data_prescricao?: string
   receita_arquivo?: string // nome do arquivo
   // Campos existentes
@@ -195,7 +210,7 @@ export interface Medicamento {
   }
   data_inicio?: string
   data_fim?: string
-  horarios?: string[] | string // stored as json array e.g. ["08:00", "20:00"]
+  horarios?: (HorarioItem | string)[] | string // Mantém retrocompatibilidade: array de strings legadas ou array de HorarioItem
   observacoes?: string
   status: StatusMedicamento
   userId: string

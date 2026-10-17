@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T19:36:51.111Z",
+  "generatedAt": "2026-10-17T20:32:16.695Z",
   "collections": [
     {
       "name": "users",
@@ -336,6 +336,19 @@
           "required": false,
           "system": false,
           "collectionRef": "health_profiles"
+        },
+        {
+          "name": "periodicidade",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["diária", "semanal", "quinzenal", "mensal", "semestral", "temporário"]
+        },
+        {
+          "name": "dia_referencia",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

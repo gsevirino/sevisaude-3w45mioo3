@@ -8,6 +8,7 @@ import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getMedicamentos, getConsultas, getExames, getDocumentos } from '@/services/healthService'
 import type { Medicamento, Consulta, Exame, Documento } from '@/types/health'
+import { normalizarHorarios, medicamentoTomaHoje } from '@/lib/medicamentoUtils'
 import {
   Pill,
   CalendarCheck,
@@ -81,9 +82,11 @@ export default function Index() {
   // Calculations
   const activeMeds = medicamentos.filter((m) => m.status === 'em uso')
 
-  // Find upcoming appointments
   const now = new Date()
   const todayStr = extrairDataIso(now.toISOString())
+
+  // Medicamentos que a pessoa realmente toma HOJE de acordo com periodicidade estruturada
+  const medsQueTomaHoje = activeMeds.filter((m) => medicamentoTomaHoje(m, now))
 
   const upcomingConsultas = consultas
     .filter((c) => c.status === 'Agendada' && c.data >= todayStr)
@@ -99,15 +102,28 @@ export default function Index() {
     exames.filter((e) => e.pedido_arquivo).length +
     exames.filter((e) => e.resultado_arquivo).length
 
-  // Medications today schedule
-  const allDailyDoses: { medName: string; time: string; dose: string }[] = []
-  activeMeds.forEach((m) => {
-    const list = Array.isArray(m.horarios) ? m.horarios : []
-    list.forEach((t) => {
+  // Medications today schedule (doses apenas dos medicamentos que toma HOJE)
+  const allDailyDoses: {
+    medName: string
+    time: string
+    dose: string
+    quantidade?: number | null
+    unidade?: string
+  }[] = []
+
+  medsQueTomaHoje.forEach((m) => {
+    const list = normalizarHorarios(m.horarios)
+    const doseDesc = m.dose_prescrita
+      ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+      : m.concentracao || m.dosagem || ''
+
+    list.forEach((h) => {
       allDailyDoses.push({
         medName: m.nome,
-        dose: m.dosagem,
-        time: t,
+        dose: doseDesc,
+        time: h.hora,
+        quantidade: h.quantidade,
+        unidade: m.unidade_dose || m.forma || '',
       })
     })
   })
@@ -253,9 +269,9 @@ export default function Index() {
           </div>
           <p className="text-xs text-[#6B7A6F] mt-2 flex items-center gap-1">
             <span>
-              {activeMeds.length === 1
-                ? '1 em uso contínuo'
-                : `${activeMeds.length} em uso contínuo`}
+              {medsQueTomaHoje.length === 1
+                ? '1 medicamento para hoje'
+                : `${medsQueTomaHoje.length} medicamentos para hoje`}
             </span>
             <ChevronRight className="w-3 h-3 text-[#4C7A5A]" />
           </p>
@@ -385,11 +401,22 @@ export default function Index() {
             <p className="text-xs text-[#385942] mt-0.5">
               {activeMeds.length > 0 ? (
                 <>
-                  Você tem <strong>{activeMeds.length} medicamentos ativos</strong> cadastrados.{' '}
+                  Hoje você toma{' '}
+                  <strong>
+                    {medsQueTomaHoje.length}{' '}
+                    {medsQueTomaHoje.length === 1 ? 'medicamento' : 'medicamentos'}
+                  </strong>
+                  {activeMeds.length !== medsQueTomaHoje.length && (
+                    <span> ({activeMeds.length} ativos no total)</span>
+                  )}
+                  .{' '}
                   {nextDose && (
                     <span>
-                      Próxima dose: <strong>{nextDose.time}</strong> ({nextDose.medName} •{' '}
-                      {nextDose.dose})
+                      Próxima dose: <strong>{nextDose.time}</strong> ({nextDose.medName}
+                      {nextDose.quantidade
+                        ? ` • ${nextDose.quantidade} ${nextDose.unidade || ''}`.trimEnd()
+                        : ''}
+                      {!nextDose.quantidade && nextDose.dose ? ` • ${nextDose.dose}` : ''})
                     </span>
                   )}
                 </>

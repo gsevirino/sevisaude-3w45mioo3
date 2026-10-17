@@ -54,7 +54,7 @@ export async function getMedicamentos(profileId?: string): Promise<Medicamento[]
 }
 
 function normalizeMedicamento(m: Medicamento): Medicamento {
-  let horarios: string[] = []
+  let horarios: any[] = []
   if (Array.isArray(m.horarios)) {
     horarios = m.horarios
   } else if (typeof m.horarios === 'string') {

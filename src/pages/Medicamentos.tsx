@@ -14,8 +14,17 @@ import type {
   FormaFarmaceutica,
   StatusMedicamento,
   TipoUsoMedicamento,
+  PeriodicidadeMedicamento,
+  HorarioItem,
   AlteracaoMedicamento,
 } from '@/types/health'
+import {
+  normalizarHorarios,
+  formatarChipHorario,
+  formatarPeriodicidadeLegivel,
+  DIAS_SEMANA,
+  PERIODICIDADE_OPTIONS,
+} from '@/lib/medicamentoUtils'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
 import { useSubscription } from '@/context/SubscriptionContext'
@@ -127,6 +136,8 @@ export default function Medicamentos() {
   const [frequencia, setFrequencia] = useState('')
   const [instrucoesPrescricao, setInstrucoesPrescricao] = useState('')
   const [tipoUso, setTipoUso] = useState<TipoUsoMedicamento>('contínuo')
+  const [periodicidade, setPeriodicidade] = useState<PeriodicidadeMedicamento>('diária')
+  const [diaReferencia, setDiaReferencia] = useState('')
   const [dataPrescricao, setDataPrescricao] = useState('')
   const [status, setStatus] = useState<StatusMedicamento>('em uso')
   const [dosagem, setDosagem] = useState('')
@@ -135,9 +146,10 @@ export default function Medicamentos() {
   const [medicoId, setMedicoId] = useState('')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
-  const [horarios, setHorarios] = useState<string[]>(['08:00'])
+  const [horarios, setHorarios] = useState<HorarioItem[]>([{ hora: '08:00', quantidade: null }])
+  const [novoHorarioHora, setNovoHorarioHora] = useState('12:00')
+  const [novoHorarioQtd, setNovoHorarioQtd] = useState('')
   const [observacoes, setObservacoes] = useState('')
-  const [novoHorario, setNovoHorario] = useState('12:00')
   const [receitaFile, setReceitaFile] = useState<File | null>(null)
   const receitaInputRef = useRef<HTMLInputElement>(null)
 
@@ -204,6 +216,8 @@ export default function Medicamentos() {
     setFrequencia('12 em 12 horas')
     setInstrucoesPrescricao('')
     setTipoUso('contínuo')
+    setPeriodicidade('diária')
+    setDiaReferencia('')
     setDataPrescricao(extrairDataIso(new Date().toISOString()))
     setStatus('em uso')
     setDosagem('')
@@ -212,7 +226,9 @@ export default function Medicamentos() {
     setMedicoId(medicos[0]?.id || '')
     setDataInicio(extrairDataIso(new Date().toISOString()))
     setDataFim('')
-    setHorarios(['08:00'])
+    setHorarios([{ hora: '08:00', quantidade: null }])
+    setNovoHorarioHora('12:00')
+    setNovoHorarioQtd('')
     setObservacoes('')
     setReceitaFile(null)
     setFormOpen(true)
@@ -229,7 +245,9 @@ export default function Medicamentos() {
     setViaAdministracao(m.via_administracao || 'Oral')
     setFrequencia(m.frequencia || '')
     setInstrucoesPrescricao(m.instrucoes_prescricao || '')
-    setTipoUso(m.tipo_uso || 'contínuo')
+    setTipoUso(m.tipo_uso || (m.periodicidade === 'temporário' ? 'temporário' : 'contínuo'))
+    setPeriodicidade(m.periodicidade || (m.tipo_uso === 'temporário' ? 'temporário' : 'diária'))
+    setDiaReferencia(m.dia_referencia || '')
     setDataPrescricao(extrairDataIso(m.data_prescricao))
     setStatus(m.status || 'em uso')
     setDosagem(m.dosagem || '')
@@ -238,20 +256,43 @@ export default function Medicamentos() {
     setMedicoId(m.medico || '')
     setDataInicio(extrairDataIso(m.data_inicio))
     setDataFim(extrairDataIso(m.data_fim))
-    setHorarios(Array.isArray(m.horarios) && m.horarios.length > 0 ? m.horarios : ['08:00'])
+    const norm = normalizarHorarios(m.horarios)
+    setHorarios(norm.length > 0 ? norm : [{ hora: '08:00', quantidade: null }])
+    setNovoHorarioHora('12:00')
+    setNovoHorarioQtd('')
     setObservacoes(m.observacoes || '')
     setReceitaFile(null)
     setFormOpen(true)
   }
 
   const handleAddHorario = () => {
-    if (novoHorario && !horarios.includes(novoHorario)) {
-      setHorarios([...horarios, novoHorario].sort())
+    if (!novoHorarioHora) return
+    const qtdNum = novoHorarioQtd.trim() ? Number(novoHorarioQtd.replace(',', '.')) : null
+    const validQtd = qtdNum && !Number.isNaN(qtdNum) && qtdNum > 0 ? qtdNum : null
+    const exists = horarios.some((h) => h.hora === novoHorarioHora)
+    if (exists) {
+      // Atualiza quantidade do horário existente
+      setHorarios(
+        horarios.map((h) => (h.hora === novoHorarioHora ? { ...h, quantidade: validQtd } : h)),
+      )
+    } else {
+      setHorarios(
+        [...horarios, { hora: novoHorarioHora, quantidade: validQtd }].sort((a, b) =>
+          a.hora.localeCompare(b.hora),
+        ),
+      )
     }
+    setNovoHorarioQtd('')
+  }
+
+  const handleUpdateHorarioQtd = (time: string, newQtdStr: string) => {
+    const qtdNum = newQtdStr.trim() ? Number(newQtdStr.replace(',', '.')) : null
+    const validQtd = qtdNum && !Number.isNaN(qtdNum) && qtdNum > 0 ? qtdNum : null
+    setHorarios(horarios.map((h) => (h.hora === time ? { ...h, quantidade: validQtd } : h)))
   }
 
   const handleRemoveHorario = (time: string) => {
-    setHorarios(horarios.filter((h) => h !== time))
+    setHorarios(horarios.filter((h) => h.hora !== time))
   }
 
   // Pre-save check
@@ -289,6 +330,9 @@ export default function Medicamentos() {
     if (instrucoesPrescricao.trim())
       formData.append('instrucoes_prescricao', instrucoesPrescricao.trim())
     if (tipoUso) formData.append('tipo_uso', tipoUso)
+    if (periodicidade) formData.append('periodicidade', periodicidade)
+    if (diaReferencia.trim()) formData.append('dia_referencia', diaReferencia.trim())
+    else formData.append('dia_referencia', '')
     if (dataPrescricao) formData.append('data_prescricao', dataPrescricao)
     formData.append('status', status)
     formData.append('dosagem', calculatedDosagem)
@@ -297,6 +341,7 @@ export default function Medicamentos() {
     if (medicoId) formData.append('medico', medicoId)
     if (dataInicio) formData.append('data_inicio', dataInicio)
     if (dataFim) formData.append('data_fim', dataFim)
+    // Armazena estrutura ampliada mantendo retrocompatibilidade
     formData.append('horarios', JSON.stringify(horarios))
     if (observacoes.trim()) formData.append('observacoes', observacoes.trim())
     if (receitaFile) formData.append('receita_arquivo', receitaFile)
@@ -308,6 +353,14 @@ export default function Medicamentos() {
         changes.push(
           `Dose: "${editingMed.dose_prescrita || editingMed.dosagem || '—'}" → "${dosePrescrita || calculatedDosagem}"`,
         )
+      }
+      if (editingMed.periodicidade !== periodicidade) {
+        changes.push(
+          `Periodicidade: "${editingMed.periodicidade || 'diária'}" → "${periodicidade}"`,
+        )
+      }
+      if (editingMed.dia_referencia !== diaReferencia) {
+        changes.push(`Dia ref: "${editingMed.dia_referencia || '—'}" → "${diaReferencia || '—'}"`)
       }
       if (editingMed.frequencia !== frequencia) {
         changes.push(`Frequência: "${editingMed.frequencia || '—'}" → "${frequencia || '—'}"`)
@@ -323,10 +376,10 @@ export default function Medicamentos() {
         changes.length > 0 ? changes.join('; ') : 'Revisão de posologia/dados cadastrais',
       )
       setAuditOldValue(
-        `Dose: ${editingMed.dose_prescrita || editingMed.dosagem || '—'} | Freq: ${editingMed.frequencia || '—'} | Status: ${editingMed.status}`,
+        `Dose: ${editingMed.dose_prescrita || editingMed.dosagem || '—'} | Período: ${editingMed.periodicidade || 'diária'} | Status: ${editingMed.status}`,
       )
       setAuditNewValue(
-        `Dose: ${dosePrescrita || calculatedDosagem || '—'} | Freq: ${frequencia || '—'} | Status: ${status}`,
+        `Dose: ${dosePrescrita || calculatedDosagem || '—'} | Período: ${periodicidade} | Status: ${status}`,
       )
       setAuditReason('')
       setPendingAction({ type: 'submit_edit', formData })
@@ -684,8 +737,12 @@ export default function Medicamentos() {
             const isConcluido = m.status === 'concluído'
             const isHistoryOpen = !!expandedHistory[m.id]
             const historyList = expandedHistory[m.id] || []
-            const horariosList = Array.isArray(m.horarios) ? m.horarios : []
+            const horariosList = normalizarHorarios(m.horarios)
             const incompleteList = getIncompleteFields(m)
+            const periodicidadeLegivel = formatarPeriodicidadeLegivel(
+              m.periodicidade,
+              m.dia_referencia,
+            )
             const receitaUrl = m.receita_arquivo
               ? getFileUrl('medicamentos', m.id, m.receita_arquivo)
               : ''
@@ -742,6 +799,11 @@ export default function Medicamentos() {
                           Uso {m.tipo_uso}
                         </span>
                       )}
+                      {periodicidadeLegivel && (
+                        <span className="text-[10px] text-[#385942] font-semibold bg-[#E7F0E3] px-2.5 py-0.5 rounded-full border border-[#A8C3A0]/60">
+                          {periodicidadeLegivel}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -781,10 +843,10 @@ export default function Medicamentos() {
                       {horariosList.length > 0 ? (
                         horariosList.map((h) => (
                           <span
-                            key={h}
-                            className="px-2.5 py-0.5 rounded-full bg-[#E7F0E3] text-[#26362B] text-xs font-semibold border border-[#DCE9D4]"
+                            key={h.hora}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E7F0E3] text-[#26362B] text-xs font-semibold border border-[#DCE9D4]"
                           >
-                            {h}
+                            <span>{formatarChipHorario(h, m.unidade_dose || m.forma || 'un')}</span>
                           </span>
                         ))
                       ) : (
@@ -1161,32 +1223,137 @@ export default function Medicamentos() {
                   </div>
                 </div>
 
+                {/* Periodicidade Estruturada + Dia de Referência */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                      Frequência
+                      Periodicidade
+                    </label>
+                    <select
+                      value={periodicidade}
+                      onChange={(e) => {
+                        const newP = e.target.value as PeriodicidadeMedicamento
+                        setPeriodicidade(newP)
+                        if (newP === 'temporário') {
+                          setTipoUso('temporário')
+                        } else {
+                          setTipoUso('contínuo')
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                    >
+                      {PERIODICIDADE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-[#6B7A6F] mt-0.5">
+                      {PERIODICIDADE_OPTIONS.find((o) => o.value === periodicidade)?.descricao}
+                    </p>
+                  </div>
+
+                  {/* Dia de referência condicional */}
+                  {periodicidade === 'semanal' || periodicidade === 'quinzenal' ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                        Dia da semana de tomada
+                      </label>
+                      <select
+                        value={diaReferencia}
+                        onChange={(e) => setDiaReferencia(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      >
+                        <option value="">Selecione o dia da semana...</option>
+                        {DIAS_SEMANA.map((d) => (
+                          <option key={d.value} value={d.value}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-[#6B7A6F] mt-0.5">
+                        Ex.: às segundas, aos sábados
+                      </p>
+                    </div>
+                  ) : periodicidade === 'mensal' ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                        Dia do mês (1 a 31)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={diaReferencia}
+                        onChange={(e) => setDiaReferencia(e.target.value)}
+                        placeholder="Ex.: 15"
+                        className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      />
+                      <p className="text-[10px] text-[#6B7A6F] mt-0.5">
+                        Tomar todo dia {diaReferencia || 'X'} do mês
+                      </p>
+                    </div>
+                  ) : periodicidade === 'semestral' ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                        Data de referência semestral
+                      </label>
+                      <input
+                        type="date"
+                        value={diaReferencia}
+                        onChange={(e) => setDiaReferencia(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      />
+                      <p className="text-[10px] text-[#6B7A6F] mt-0.5">
+                        Repete a cada 6 meses a partir desta data
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                        Tipo de uso
+                      </label>
+                      <select
+                        value={tipoUso}
+                        onChange={(e) => setTipoUso(e.target.value as TipoUsoMedicamento)}
+                        className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                      >
+                        <option value="contínuo">Uso Contínuo</option>
+                        <option value="temporário">Uso Temporário</option>
+                      </select>
+                      <p className="text-[10px] text-[#6B7A6F] mt-0.5">
+                        {tipoUso === 'contínuo'
+                          ? 'Uso sem data de término'
+                          : 'Uso por tempo limitado'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
+                      Frequência complementar (texto livre)
                     </label>
                     <input
                       type="text"
                       value={frequencia}
                       onChange={(e) => setFrequencia(e.target.value)}
-                      placeholder="Ex.: 12 em 12 horas, 1 vez ao dia, se dor"
+                      placeholder="Ex.: 12 em 12 horas, 1 x ao dia, pela manhã"
                       className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                      Tipo de uso
+                      Data de início do tratamento
                     </label>
-                    <select
-                      value={tipoUso}
-                      onChange={(e) => setTipoUso(e.target.value as TipoUsoMedicamento)}
+                    <input
+                      type="date"
+                      value={dataInicio}
+                      onChange={(e) => setDataInicio(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
-                    >
-                      <option value="contínuo">Uso Contínuo</option>
-                      <option value="temporário">Uso Temporário</option>
-                    </select>
+                    />
                   </div>
                 </div>
 
@@ -1269,42 +1436,81 @@ export default function Medicamentos() {
               {/* Section 5: Horários e Anexo de Receita */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Horários */}
-                <div className="p-3.5 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4]">
-                  <label className="block text-xs font-semibold text-[#26362B] mb-2 uppercase tracking-wider">
-                    Horários de tomada
-                  </label>
-                  <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                <div className="p-3.5 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-[#26362B] uppercase tracking-wider">
+                      Horários e quantidade por tomada
+                    </label>
+                    <span className="text-[10px] text-[#6B7A6F]">
+                      Unidade:{' '}
+                      <strong className="text-[#26362B]">{unidadeDose || forma || 'dose'}</strong>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                     {horarios.map((h) => (
-                      <span
-                        key={h}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white text-[#26362B] text-xs font-semibold border border-[#D9E2D4]"
+                      <div
+                        key={h.hora}
+                        className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl bg-white border border-[#D9E2D4] text-xs"
                       >
-                        <Clock className="w-3 h-3 text-[#4C7A5A]" />
-                        <span>{h}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveHorario(h)}
-                          className="text-red-500 hover:text-red-700 ml-0.5 cursor-pointer"
-                        >
-                          ×
-                        </button>
-                      </span>
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-[#4C7A5A]" />
+                          <span className="font-semibold text-[#26362B]">{h.hora}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[11px] text-[#6B7A6F]">Qtd:</span>
+                            <input
+                              type="number"
+                              step="any"
+                              min="0"
+                              placeholder="ex: 4"
+                              value={h.quantidade ?? ''}
+                              onChange={(e) => handleUpdateHorarioQtd(h.hora, e.target.value)}
+                              className="w-14 px-1.5 py-0.5 rounded-lg border border-[#D9E2D4] text-xs text-center outline-none focus:ring-1 focus:ring-[#4C7A5A]"
+                              title={`Quantidade tomada às ${h.hora}`}
+                            />
+                            <span className="text-[11px] text-[#6B7A6F] truncate max-w-[60px]">
+                              {unidadeDose || forma || ''}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveHorario(h.hora)}
+                            className="text-red-500 hover:text-red-700 p-0.5 hover:bg-red-50 rounded text-sm leading-none cursor-pointer"
+                            title="Remover horário"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="pt-2 border-t border-[#D9E2D4]/70 flex flex-wrap items-center gap-2">
                     <input
                       type="time"
-                      value={novoHorario}
-                      onChange={(e) => setNovoHorario(e.target.value)}
+                      value={novoHorarioHora}
+                      onChange={(e) => setNovoHorarioHora(e.target.value)}
                       className="px-2.5 py-1.5 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                    />
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="Qtd (opcional, ex: 3)"
+                      value={novoHorarioQtd}
+                      onChange={(e) => setNovoHorarioQtd(e.target.value)}
+                      className="w-32 px-2.5 py-1.5 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
                     />
                     <button
                       type="button"
                       onClick={handleAddHorario}
-                      className="px-3 py-1.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-medium cursor-pointer"
+                      className="px-3 py-1.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-medium cursor-pointer ml-auto"
                     >
-                      + Horário
+                      + Adicionar
                     </button>
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getMedicamentos } from '@/services/healthService'
 import type { Medicamento } from '@/types/health'
+import { formatarPeriodicidadeLegivel } from '@/lib/medicamentoUtils'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
 import ProfileContextBadge from '@/components/ProfileContextBadge'
@@ -343,7 +344,19 @@ export default function CartaoSaude() {
                       const doseText = m.dose_prescrita
                         ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
                         : m.concentracao || m.dosagem || ''
-                      const freqText = m.frequencia || ''
+                      const pLegivel = formatarPeriodicidadeLegivel(
+                        m.periodicidade,
+                        m.dia_referencia,
+                      )
+                      // Periodicidade não diária ao lado/em vez da frequência
+                      const posologiaTexto = [
+                        doseText,
+                        m.via_administracao,
+                        pLegivel ? pLegivel.toLowerCase() : null,
+                        m.frequencia,
+                      ]
+                        .filter(Boolean)
+                        .join(' • ')
 
                       return (
                         <div
@@ -353,8 +366,7 @@ export default function CartaoSaude() {
                           <div>
                             <strong className="text-[#26362B] block leading-tight">{m.nome}</strong>
                             <span className="text-[#4C7A5A] font-medium block">
-                              {doseText} {m.via_administracao ? `• ${m.via_administracao}` : ''}{' '}
-                              {freqText ? `• ${freqText}` : ''}
+                              {posologiaTexto}
                             </span>
                           </div>
                         </div>
@@ -455,29 +467,37 @@ export default function CartaoSaude() {
                     <tr>
                       <th className="p-3">Medicamento</th>
                       <th className="p-3">Dose / Via</th>
-                      <th className="p-3">Frequência</th>
+                      <th className="p-3">Periodicidade / Frequência</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#D9E2D4]">
-                    {medsToDisplay.map((m) => (
-                      <tr key={m.id} className="hover:bg-gray-50/50">
-                        <td className="p-3 font-semibold text-[#26362B]">
-                          {m.nome}
-                          {m.principio_ativo && (
-                            <span className="block text-[10px] text-[#6B7A6F] font-normal">
-                              ({m.principio_ativo})
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {m.dose_prescrita
-                            ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
-                            : m.concentracao || m.dosagem || '—'}
-                          {m.via_administracao && ` • ${m.via_administracao}`}
-                        </td>
-                        <td className="p-3">{m.frequencia || 'Conforme receita'}</td>
-                      </tr>
-                    ))}
+                    {medsToDisplay.map((m) => {
+                      const pLegivel = formatarPeriodicidadeLegivel(
+                        m.periodicidade,
+                        m.dia_referencia,
+                      )
+                      const freqCompleta =
+                        [pLegivel, m.frequencia].filter(Boolean).join(' • ') || 'Conforme receita'
+                      return (
+                        <tr key={m.id} className="hover:bg-gray-50/50">
+                          <td className="p-3 font-semibold text-[#26362B]">
+                            {m.nome}
+                            {m.principio_ativo && (
+                              <span className="block text-[10px] text-[#6B7A6F] font-normal">
+                                ({m.principio_ativo})
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {m.dose_prescrita
+                              ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                              : m.concentracao || m.dosagem || '—'}
+                            {m.via_administracao && ` • ${m.via_administracao}`}
+                          </td>
+                          <td className="p-3">{freqCompleta}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

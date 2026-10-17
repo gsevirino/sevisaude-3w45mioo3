@@ -11,6 +11,11 @@ import {
   formatarDataHora,
   formatarTimestampLocal,
 } from '@/lib/dateUtils'
+import {
+  normalizarHorarios,
+  formatarChipHorario,
+  formatarPeriodicidadeLegivel,
+} from '@/lib/medicamentoUtils'
 import type {
   HealthProfile,
   Medicamento,
@@ -238,21 +243,31 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
           const dose = m.dose_prescrita
             ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
             : m.concentracao || m.dosagem || '—'
-          const horarios = Array.isArray(m.horarios) ? m.horarios.join(', ') : '—'
-          return [
-            m.nome,
-            m.principio_ativo || '—',
-            dose,
-            m.frequencia || '—',
-            horarios,
-            m.tipo_uso || '—',
-          ]
+          const normHorarios = normalizarHorarios(m.horarios)
+          const horarios =
+            normHorarios.length > 0
+              ? normHorarios
+                  .map((h) => formatarChipHorario(h, m.unidade_dose || m.forma || ''))
+                  .join(', ')
+              : '—'
+          const pLegivel = formatarPeriodicidadeLegivel(m.periodicidade, m.dia_referencia)
+          const freqTotal = [pLegivel, m.frequencia].filter(Boolean).join(' • ') || '—'
+          return [m.nome, m.principio_ativo || '—', dose, freqTotal, horarios, m.tipo_uso || '—']
         })
       : [['Nenhum medicamento com status "em uso" cadastrado.', '', '', '', '', '']]
 
   autoTable(doc, {
     startY: startY,
-    head: [['Medicamento', 'Princípio Ativo', 'Dosagem/Dose', 'Frequência', 'Horários', 'Tipo']],
+    head: [
+      [
+        'Medicamento',
+        'Princípio Ativo',
+        'Dosagem/Dose',
+        'Periodicidade / Freq',
+        'Horários (Qtd)',
+        'Tipo',
+      ],
+    ],
     body: medsRows,
     theme: 'striped',
     headStyles: {
@@ -411,19 +426,27 @@ export function exportarMedicamentosPDF(data: ExportDataPayload): void {
           const dose = m.dose_prescrita
             ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
             : m.concentracao || m.dosagem || '—'
-          const horarios = Array.isArray(m.horarios) ? m.horarios.join(', ') : '—'
+          const normHorarios = normalizarHorarios(m.horarios)
+          const horarios =
+            normHorarios.length > 0
+              ? normHorarios
+                  .map((h) => formatarChipHorario(h, m.unidade_dose || m.forma || ''))
+                  .join(', ')
+              : '—'
           const medico = m.expand?.medico?.nome || '—'
           const datas = `Início: ${formatarData(m.data_inicio) || '—'}${
             m.data_fim ? `\nFim: ${formatarData(m.data_fim)}` : ''
           }`
           const instrucoes =
             [m.instrucoes_prescricao, m.observacoes].filter(Boolean).join(' | ') || '—'
+          const pLegivel = formatarPeriodicidadeLegivel(m.periodicidade, m.dia_referencia)
+          const freqTotal = [pLegivel, m.frequencia].filter(Boolean).join('\n') || '—'
 
           return [
             m.nome,
             `${dose}\n${m.forma || ''}`,
             m.status,
-            m.frequencia || '—',
+            freqTotal,
             horarios,
             datas,
             medico,
@@ -439,8 +462,8 @@ export function exportarMedicamentosPDF(data: ExportDataPayload): void {
         'Medicamento',
         'Dosagem / Forma',
         'Status',
-        'Frequência',
-        'Horários',
+        'Periodicidade / Freq',
+        'Horários e Qtd',
         'Período',
         'Prescritor',
         'Instruções',
@@ -1141,8 +1164,10 @@ export function exportarMedicamentosCSV(data: ExportDataPayload): void {
     'Unidade Dose',
     'Concentração',
     'Forma Farmacêutica',
+    'Periodicidade',
+    'Dia de Referência',
     'Frequência',
-    'Horários',
+    'Horários (com quantidades)',
     'Tipo de Uso',
     'Status',
     'Data Início',
@@ -1154,7 +1179,15 @@ export function exportarMedicamentosCSV(data: ExportDataPayload): void {
 
   const lines = [header.map(escapeCsvCell).join(';')]
   ;(data.medicamentos || []).forEach((m) => {
-    const horarios = Array.isArray(m.horarios) ? m.horarios.join(', ') : ''
+    const normHorarios = normalizarHorarios(m.horarios)
+    const horarios =
+      normHorarios.length > 0
+        ? normHorarios
+            .map((h) => formatarChipHorario(h, m.unidade_dose || m.forma || ''))
+            .join(', ')
+        : ''
+    const pLegivel =
+      formatarPeriodicidadeLegivel(m.periodicidade, m.dia_referencia) || m.periodicidade || ''
     lines.push(
       [
         m.nome,
@@ -1163,6 +1196,8 @@ export function exportarMedicamentosCSV(data: ExportDataPayload): void {
         m.unidade_dose || '',
         m.concentracao || m.dosagem || '',
         m.forma || '',
+        pLegivel,
+        m.dia_referencia || '',
         m.frequencia || '',
         horarios,
         m.tipo_uso || '',
