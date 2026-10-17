@@ -276,8 +276,8 @@ export default function Documentos() {
       toast({
         title: 'Falha na leitura inteligente',
         description:
-          err?.data?.error ||
           err?.message ||
+          err?.data?.error ||
           'Não foi possível ler o arquivo. Sua cota NÃO foi consumida.',
         variant: 'destructive',
       })

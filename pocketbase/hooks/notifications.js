@@ -636,8 +636,7 @@ module.exports = {
 // -------------------------------------------------------------
 cronAdd('sevisaude_reminders_cron', '*/15 * * * *', () => {
   try {
-    const mod = require(`${__hooks}/notifications.js`)
-    mod.processHealthReminders($app)
+    processHealthReminders($app)
   } catch (err) {
     console.error('[SeviSaúde Lembretes] Erro fatal no cron job:', err)
   }
@@ -647,8 +646,7 @@ cronAdd('sevisaude_reminders_cron', '*/15 * * * *', () => {
 onBootstrap((e) => {
   e.next()
   try {
-    const mod = require(`${__hooks}/notifications.js`)
-    mod.processHealthReminders(e.app)
+    processHealthReminders(e.app || $app)
   } catch (err) {
     console.error('[SeviSaúde Lembretes] Erro no processamento de bootstrap:', err)
   }

@@ -683,10 +683,10 @@ routerAdd(
         chatResponseText = aiRes.choices[0].message.content || ''
       } catch (aiErr) {
         console.error('[OCR] Erro na chamada $ai.chat:', aiErr)
-        // Se a chamada de IA falhar, NÃO consome a cota e retorna erro amigável
+        // Se a chamada de IA falhar, NÃO consome a cota e retorna erro amigável em pt-BR
         return e.json(502, {
           error:
-            'Falha temporária ao comunicar com o serviço de inteligência artificial para leitura do documento. Sua cota de OCR NÃO foi consumida. Tente novamente em alguns instantes.',
+            'Não foi possível concluir a leitura inteligente da imagem com o serviço de inteligência artificial. Sua cota de OCR NÃO foi consumida. Tente reenviar ou use uma foto mais nítida e bem enquadrada.',
           details: aiErr.message || String(aiErr),
         })
       }

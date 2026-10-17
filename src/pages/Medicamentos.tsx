@@ -560,8 +560,8 @@ export default function Medicamentos() {
                   toast({
                     title: 'Falha no OCR',
                     description:
-                      ocrErr?.data?.error ||
                       ocrErr?.message ||
+                      ocrErr?.data?.error ||
                       'Não foi possível ler o arquivo. Sua cota NÃO foi consumida.',
                     variant: 'destructive',
                   })
