@@ -664,30 +664,95 @@ routerAdd(
       }
 
       // Chamar $ai.chat com gateway
+      // Chamar $ai.chat com gateway
       let chatResponseText = ''
       try {
-        const aiRes = $ai.chat({
-          model: 'fast',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Você é um assistente de OCR médico do SeviSaúde. Responda apenas com JSON puro.',
-            },
-            {
-              role: 'user',
-              content: userMessageContent,
-            },
-          ],
-        })
-        chatResponseText = aiRes.choices[0].message.content || ''
+        console.log('[OCR] Tentando chamada $ai.chat...')
+
+        // Testar chamada textual primeiro se necessário, ou estruturação
+        let messagesPayload = [
+          {
+            role: 'system',
+            content:
+              'Você é um assistente de OCR médico do SeviSaúde. Responda apenas com JSON puro.',
+          },
+          {
+            role: 'user',
+            content: userMessageContent,
+          },
+        ]
+
+        try {
+          const aiRes = $ai.chat({
+            model: 'fast',
+            messages: messagesPayload,
+          })
+          chatResponseText = aiRes.choices[0].message.content || ''
+        } catch (firstErr) {
+          console.error(
+            '[OCR] Falha tentativa 1 (fast + multimodal):',
+            firstErr.message || String(firstErr),
+            'status:',
+            firstErr.status,
+          )
+
+          // Testar se o gateway aceita reasoning ou se o problema é o formato da imagem
+          // Tentativa 2: model 'reasoning' com a imagem
+          try {
+            console.log('[OCR] Tentando com model: reasoning...')
+            const aiRes2 = $ai.chat({
+              model: 'reasoning',
+              messages: messagesPayload,
+            })
+            chatResponseText = aiRes2.choices[0].message.content || ''
+            console.log('[OCR] Sucesso com model reasoning!')
+          } catch (reasoningErr) {
+            console.error(
+              '[OCR] Falha tentativa 2 (reasoning + multimodal):',
+              reasoningErr.message || String(reasoningErr),
+              'status:',
+              reasoningErr.status,
+            )
+
+            // Tentativa 3: Se ambas falharem com 400, testar se o gateway não suporta data URL / image_url
+            // Testar se apenas texto funciona no gateway para isolar se o gateway não tem suporte a visão
+            try {
+              console.log('[OCR] Testando chamada apenas com texto para isolar visão...')
+              const testTextRes = $ai.chat({
+                model: 'fast',
+                messages: [{ role: 'user', content: 'Diga olá' }],
+              })
+              console.log(
+                '[OCR] Chamada de texto puro FUNCIONOU:',
+                testTextRes.choices[0].message.content,
+              )
+            } catch (textOnlyErr) {
+              console.error(
+                '[OCR] Chamada de texto puro TAMBÉM falhou:',
+                textOnlyErr.message || String(textOnlyErr),
+                'status:',
+                textOnlyErr.status,
+              )
+            }
+
+            throw firstErr
+          }
+        }
       } catch (aiErr) {
-        console.error('[OCR] Erro na chamada $ai.chat:', aiErr)
+        console.error(
+          '[OCR] Erro final na chamada $ai.chat:',
+          aiErr.message || String(aiErr),
+          'status:',
+          aiErr.status,
+          'code:',
+          aiErr.code,
+        )
         // Se a chamada de IA falhar, NÃO consome a cota e retorna erro amigável em pt-BR
         return e.json(502, {
           error:
             'Não foi possível concluir a leitura inteligente da imagem com o serviço de inteligência artificial. Sua cota de OCR NÃO foi consumida. Tente reenviar ou use uma foto mais nítida e bem enquadrada.',
           details: aiErr.message || String(aiErr),
+          rawAiError: String(aiErr),
         })
       }
 
