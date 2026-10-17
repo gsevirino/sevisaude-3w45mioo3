@@ -158,13 +158,9 @@ export async function processDocumentOcr(file: File, profileId: string): Promise
     ) {
       throw new Error(backendMsg)
     }
-    if (err?.status === 502 || backendMsg.includes('inteligência artificial')) {
-      throw new Error(
-        'O serviço de inteligência artificial não conseguiu ler a imagem neste momento. Sua cota NÃO foi consumida. Tente reenviar ou use uma foto mais nítida e bem iluminada.',
-      )
+    if (backendMsg) {
+      throw new Error(backendMsg)
     }
-    throw new Error(
-      backendMsg || 'Falha ao processar o documento com OCR. Sua cota NÃO foi consumida.',
-    )
+    throw new Error('Falha ao processar o documento com OCR. Sua cota NÃO foi consumida.')
   }
 }

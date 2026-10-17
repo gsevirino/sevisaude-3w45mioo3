@@ -557,12 +557,14 @@ export default function Medicamentos() {
                     throw new Error('Falha ao processar receita.')
                   }
                 } catch (ocrErr: any) {
+                  const errorMsg =
+                    ocrErr?.data?.error ||
+                    ocrErr?.response?.error ||
+                    ocrErr?.message ||
+                    'Não foi possível ler o arquivo. Sua cota NÃO foi consumida.'
                   toast({
-                    title: 'Falha no OCR',
-                    description:
-                      ocrErr?.message ||
-                      ocrErr?.data?.error ||
-                      'Não foi possível ler o arquivo. Sua cota NÃO foi consumida.',
+                    title: 'Aviso sobre a leitura OCR',
+                    description: errorMsg,
                     variant: 'destructive',
                   })
                 } finally {

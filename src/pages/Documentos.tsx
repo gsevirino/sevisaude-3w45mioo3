@@ -273,12 +273,14 @@ export default function Documentos() {
       }
     } catch (err: any) {
       console.error('Erro no OCR:', err)
+      const errorMsg =
+        err?.data?.error ||
+        err?.response?.error ||
+        err?.message ||
+        'Não foi possível ler o arquivo. Sua cota NÃO foi consumida.'
       toast({
-        title: 'Falha na leitura inteligente',
-        description:
-          err?.message ||
-          err?.data?.error ||
-          'Não foi possível ler o arquivo. Sua cota NÃO foi consumida.',
+        title: 'Aviso sobre a leitura OCR',
+        description: errorMsg,
         variant: 'destructive',
       })
     } finally {

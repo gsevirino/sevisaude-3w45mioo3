@@ -750,7 +750,7 @@ routerAdd(
         // Se a chamada de IA falhar, NÃO consome a cota e retorna erro amigável em pt-BR
         return e.json(502, {
           error:
-            'Não foi possível concluir a leitura inteligente da imagem com o serviço de inteligência artificial. Sua cota de OCR NÃO foi consumida. Tente reenviar ou use uma foto mais nítida e bem enquadrada.',
+            'No momento, a leitura de imagens está temporariamente indisponível no serviço de inteligência artificial. Sua cota de OCR NÃO foi consumida. Se o seu documento for um PDF com texto digital, tente enviá-lo — a leitura de PDFs continua funcionando. Você também pode cadastrar os medicamentos e exames manualmente.',
           details: aiErr.message || String(aiErr),
           rawAiError: String(aiErr),
         })
