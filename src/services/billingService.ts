@@ -170,20 +170,101 @@ export async function getPixSettings(): Promise<{ key: string; beneficiary: stri
  */
 export async function getAdminPayments(statusFilter?: PaymentStatus): Promise<Payment[]> {
   const filter = statusFilter ? `status = "${statusFilter}"` : undefined
-  return pb.collection('payments').getFullList<Payment>({
-    filter,
-    sort: '-created',
-    expand: 'user',
+  const [payments, users] = await Promise.all([
+    pb.collection('payments').getFullList<Payment>({
+      filter,
+      sort: '-created',
+      expand: 'user',
+    }),
+    pb
+      .collection('users')
+      .getFullList()
+      .catch(() => []),
+  ])
+
+  const userMap = new Map<string, any>()
+  for (const u of users) {
+    userMap.set(u.id, u)
+  }
+
+  return payments.map((pmt) => {
+    const fallbackUser = userMap.get(pmt.user)
+    if (!pmt.expand?.user && fallbackUser) {
+      return {
+        ...pmt,
+        expand: {
+          ...pmt.expand,
+          user: fallbackUser,
+        },
+      }
+    }
+    if (pmt.expand?.user && fallbackUser) {
+      return {
+        ...pmt,
+        expand: {
+          ...pmt.expand,
+          user: {
+            ...fallbackUser,
+            ...pmt.expand.user,
+            name: pmt.expand.user.name || fallbackUser.name,
+            email: pmt.expand.user.email || fallbackUser.email,
+          },
+        },
+      }
+    }
+    return pmt
   })
 }
 
 /**
- * Carrega todas as assinaturas cadastradas para o painel de administração
+ * Carrega todas as assinaturas cadastradas para o painel de administração.
+ * Faz o fallback para carregar o catálogo de usuários diretamente da coleção `users`
+ * para garantir que toda linha tenha o nome e e-mail completos mesmo se o expand vier parcial.
  */
 export async function getAdminSubscriptions(): Promise<Subscription[]> {
-  return pb.collection('subscriptions').getFullList<Subscription>({
-    sort: '-created',
-    expand: 'user',
+  const [subs, users] = await Promise.all([
+    pb.collection('subscriptions').getFullList<Subscription>({
+      sort: '-created',
+      expand: 'user',
+    }),
+    pb
+      .collection('users')
+      .getFullList()
+      .catch(() => []),
+  ])
+
+  const userMap = new Map<string, any>()
+  for (const u of users) {
+    userMap.set(u.id, u)
+  }
+
+  // Preenche ou enriquece expand.user em cada subscription
+  return subs.map((sub) => {
+    const fallbackUser = userMap.get(sub.user)
+    if (!sub.expand?.user && fallbackUser) {
+      return {
+        ...sub,
+        expand: {
+          ...sub.expand,
+          user: fallbackUser,
+        },
+      }
+    }
+    if (sub.expand?.user && fallbackUser) {
+      return {
+        ...sub,
+        expand: {
+          ...sub.expand,
+          user: {
+            ...fallbackUser,
+            ...sub.expand.user,
+            name: sub.expand.user.name || fallbackUser.name,
+            email: sub.expand.user.email || fallbackUser.email,
+          },
+        },
+      }
+    }
+    return sub
   })
 }
 

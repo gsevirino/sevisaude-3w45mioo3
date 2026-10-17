@@ -1029,6 +1029,12 @@ routerAdd(
         sub.set('status', 'ativa')
         sub.set('data_cortesia_ate', dataCortesiaAte)
         sub.set('data_fim', dataCortesiaAte)
+      } else {
+        // Revogação de cortesia: se expirada ou cancelada, manter; caso contrário, data_fim ajustada para hoje e status expirada se já passou
+        const todayIso = new Date().toISOString().split('T')[0]
+        sub.set('data_cortesia_ate', null)
+        sub.set('data_fim', todayIso)
+        sub.set('status', 'expirada')
       }
       sub.set('notas_admin', notas)
       e.app.save(sub)

@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-16T20:08:14.222Z",
+  "generatedAt": "2026-10-17T18:18:12.410Z",
   "collections": [
     {
       "name": "users",
       "type": "auth",
       "apiRules": {
-        "list": "id = @request.auth.id",
-        "view": "id = @request.auth.id",
+        "list": "@request.auth.id != '' && (id = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
+        "view": "@request.auth.id != '' && (id = @request.auth.id || @request.auth.email = 'gislaine.sevirino@gmail.com')",
         "create": "",
         "update": "id = @request.auth.id",
         "delete": "id = @request.auth.id"

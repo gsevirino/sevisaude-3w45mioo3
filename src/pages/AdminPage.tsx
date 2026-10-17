@@ -53,7 +53,7 @@ export default function AdminPage() {
   const [searchUser, setSearchUser] = useState('')
   const [cortesiaModalOpen, setCortesiaModalOpen] = useState(false)
   const [selectedSubForCortesia, setSelectedSubForCortesia] = useState<Subscription | null>(null)
-  const [cortesiaPlano, setCortesiaPlano] = useState<PlanoKey>('familia')
+  const [cortesiaPlano, setCortesiaPlano] = useState<PlanoKey>('completo')
   const [cortesiaDataAte, setCortesiaDataAte] = useState('2099-12-31')
   const [cortesiaNotas, setCortesiaNotas] = useState('Cortesia concedida pela administração')
   const [savingCortesia, setSavingCortesia] = useState(false)
@@ -166,11 +166,61 @@ export default function AdminPage() {
     }
   }
 
+  // Helpers para identificar usuário com segurança e clareza
+  const getUserDisplayName = (u?: { name?: string; email?: string } | null) => {
+    const rawName = (u?.name || '').trim()
+    const rawEmail = (u?.email || '').trim()
+    if (rawName) return rawName
+    if (rawEmail) return rawEmail
+    return 'Conta sem nome'
+  }
+
+  const getUserDisplayEmail = (u?: { name?: string; email?: string } | null) => {
+    const rawEmail = (u?.email || '').trim()
+    if (rawEmail) return rawEmail
+    return 'E-mail não informado'
+  }
+
+  // Helper para sugerir prazos de cortesia
+  const aplicarPrazoSugerido = (meses: number) => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + meses)
+    setCortesiaDataAte(d.toISOString().split('T')[0])
+  }
+
+  const abrirModalCortesia = (sub: Subscription) => {
+    setSelectedSubForCortesia(sub)
+    // Se a conta já tiver um plano específico, sugerir ele; se for nova cortesia, sugerir "completo" ou o plano atual
+    const planoInicial: PlanoKey =
+      sub.plano === 'familia' || sub.plano === 'completo' || sub.plano === 'essencial'
+        ? sub.plano
+        : 'completo'
+    setCortesiaPlano(planoInicial)
+
+    // Se já tem data de cortesia futura válida, manter; se não, sugerir 1 ano (12 meses)
+    if (sub.is_cortesia && sub.data_cortesia_ate) {
+      setCortesiaDataAte(sub.data_cortesia_ate.split('T')[0])
+    } else {
+      const umAno = new Date()
+      umAno.setFullYear(umAno.getFullYear() + 1)
+      setCortesiaDataAte(umAno.toISOString().split('T')[0])
+    }
+
+    setCortesiaNotas(
+      sub.notas_admin ||
+        (sub.is_cortesia ? 'Cortesia ativa' : 'Cortesia concedida pela administração'),
+    )
+    setCortesiaModalOpen(true)
+  }
+
   // Salvar Cortesia
   const handleSaveCortesia = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedSubForCortesia) return
     setSavingCortesia(true)
+    const nomePlano = PLANS_CONFIG[cortesiaPlano]?.nome || cortesiaPlano.toUpperCase()
+    const isEdicao = selectedSubForCortesia.is_cortesia
+
     try {
       await adminSetCortesia({
         userId: selectedSubForCortesia.user,
@@ -180,14 +230,14 @@ export default function AdminPage() {
         notas: cortesiaNotas,
       })
       toast({
-        title: 'Cortesia concedida!',
-        description: `Conta marcada com plano ${cortesiaPlano.toUpperCase()} até ${formatarData(cortesiaDataAte)}.`,
+        title: isEdicao ? 'Cortesia atualizada!' : 'Cortesia concedida com sucesso!',
+        description: `Plano ${nomePlano} ativo com validade até ${formatarData(cortesiaDataAte)}.`,
       })
       setCortesiaModalOpen(false)
       await loadData()
     } catch (err: any) {
       toast({
-        title: 'Erro ao conceder cortesia',
+        title: 'Erro ao salvar cortesia',
         description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
@@ -198,23 +248,30 @@ export default function AdminPage() {
 
   // Remover Cortesia
   const handleRevokeCortesia = async (sub: Subscription) => {
-    if (!confirm('Deseja revogar o status de cortesia desta conta?')) return
+    const nomeUsuario = getUserDisplayName(sub.expand?.user)
+    if (
+      !confirm(
+        `Deseja realmente revogar a cortesia da conta de "${nomeUsuario}"? A conta voltará ao fluxo padrão.`,
+      )
+    ) {
+      return
+    }
     try {
       await adminSetCortesia({
         userId: sub.user,
-        plano: 'essencial',
+        plano: sub.plano || 'essencial',
         isCortesia: false,
         dataCortesiaAte: new Date().toISOString().split('T')[0],
-        notas: 'Cortesia revogada pela administração',
+        notas: 'Cortesia revogada pela administração em ' + new Date().toISOString().split('T')[0],
       })
       toast({
-        title: 'Cortesia revogada',
+        title: 'Cortesia revogada com sucesso',
         description: 'A conta voltará ao fluxo normal de assinatura.',
       })
       await loadData()
     } catch (err: any) {
       toast({
-        title: 'Erro ao revogar',
+        title: 'Erro ao revogar cortesia',
         description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       })
@@ -248,7 +305,8 @@ export default function AdminPage() {
   const filteredSubs = subscriptions.filter((s) => {
     const userEmail = s.expand?.user?.email || ''
     const userName = s.expand?.user?.name || ''
-    const term = searchUser.toLowerCase()
+    const term = searchUser.toLowerCase().trim()
+    if (!term) return true
     return userEmail.toLowerCase().includes(term) || userName.toLowerCase().includes(term)
   })
 
@@ -354,10 +412,10 @@ export default function AdminPage() {
                       <div className="space-y-1.5 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-sm text-[#26362B]">
-                            {pmt.expand?.user?.name || 'Usuário'}
+                            {getUserDisplayName(pmt.expand?.user)}
                           </span>
                           <span className="text-xs text-[#6B7A6F]">
-                            ({pmt.expand?.user?.email})
+                            ({getUserDisplayEmail(pmt.expand?.user)})
                           </span>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E7F0E3] text-[#4C7A5A]">
                             {planDef.nome}
@@ -443,7 +501,10 @@ export default function AdminPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-[#26362B]">
-                          {p.expand?.user?.email || 'Usuário'}
+                          {getUserDisplayName(p.expand?.user)}
+                        </span>
+                        <span className="text-[11px] text-[#6B7A6F]">
+                          ({getUserDisplayEmail(p.expand?.user)})
                         </span>
                         <span
                           className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
@@ -522,18 +583,32 @@ export default function AdminPage() {
               </thead>
               <tbody className="divide-y divide-[#D9E2D4]/60 text-[#26362B]">
                 {filteredSubs.map((sub) => {
-                  const userEmail = sub.expand?.user?.email || 'Usuário'
-                  const userName = sub.expand?.user?.name || ''
-                  const isGislaine = userEmail.toLowerCase() === ADMIN_EMAIL
+                  const rawEmail = sub.expand?.user?.email || ''
+                  const rawName = sub.expand?.user?.name || ''
+                  const displayName = getUserDisplayName(sub.expand?.user)
+                  const displayEmail = getUserDisplayEmail(sub.expand?.user)
+                  const isGislaine = (rawEmail || '').toLowerCase().trim() === ADMIN_EMAIL
+                  const planCfg = PLANS_CONFIG[sub.plano] || PLANS_CONFIG.essencial
 
                   return (
                     <tr key={sub.id} className="hover:bg-[#F6F4EF]/40 transition">
                       <td className="py-3 px-3">
-                        <div className="font-semibold">{userName || userEmail}</div>
-                        <div className="text-[11px] text-[#6B7A6F]">{userEmail}</div>
+                        <div className="font-semibold text-[#26362B]">{displayName}</div>
+                        <div className="text-[11px] text-[#6B7A6F]">
+                          {rawName
+                            ? displayEmail
+                            : rawEmail
+                              ? 'Nome não cadastrado'
+                              : 'Sem e-mail cadastrado'}
+                        </div>
                       </td>
-                      <td className="py-3 px-3 uppercase font-semibold text-[#4C7A5A]">
-                        {sub.plano}
+                      <td className="py-3 px-3">
+                        <span className="font-semibold text-[#4C7A5A] uppercase tracking-wide">
+                          {sub.plano}
+                        </span>
+                        <div className="text-[10px] text-[#6B7A6F]">
+                          {planCfg.nome.replace('Sevi ', '')}
+                        </div>
                       </td>
                       <td className="py-3 px-3">
                         <span
@@ -550,7 +625,7 @@ export default function AdminPage() {
                       </td>
                       <td className="py-3 px-3">
                         {sub.is_cortesia ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 flex items-center gap-1 w-max">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 inline-flex items-center gap-1 w-max">
                             <Sparkles className="w-3 h-3" />
                             Cortesia
                           </span>
@@ -577,14 +652,17 @@ export default function AdminPage() {
                         ) : (
                           <div className="flex items-center justify-end gap-1.5">
                             <button
-                              onClick={() => {
-                                setSelectedSubForCortesia(sub)
-                                setCortesiaPlano(sub.plano || 'familia')
-                                setCortesiaDataAte(sub.data_cortesia_ate || '2099-12-31')
-                                setCortesiaNotas(sub.notas_admin || 'Cortesia concedida')
-                                setCortesiaModalOpen(true)
-                              }}
-                              className="px-3 py-1.5 rounded-full bg-[#E7F0E3] hover:bg-[#DCE9D4] text-[#26362B] font-semibold text-[11px] transition cursor-pointer"
+                              onClick={() => abrirModalCortesia(sub)}
+                              title={
+                                sub.is_cortesia
+                                  ? `Editar plano e validade da cortesia de ${displayName}`
+                                  : `Conceder cortesia para ${displayName} (${displayEmail})`
+                              }
+                              className={`px-3 py-1.5 rounded-full font-semibold text-[11px] transition cursor-pointer ${
+                                sub.is_cortesia
+                                  ? 'bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-200'
+                                  : 'bg-[#E7F0E3] hover:bg-[#DCE9D4] text-[#26362B]'
+                              }`}
                             >
                               {sub.is_cortesia ? 'Editar cortesia' : 'Dar cortesia'}
                             </button>
@@ -592,6 +670,7 @@ export default function AdminPage() {
                             {sub.is_cortesia && (
                               <button
                                 onClick={() => handleRevokeCortesia(sub)}
+                                title={`Revogar cortesia de ${displayName}`}
                                 className="px-2.5 py-1.5 rounded-full text-red-600 hover:bg-red-50 text-[11px] font-medium transition cursor-pointer"
                               >
                                 Revogar
@@ -682,86 +761,178 @@ export default function AdminPage() {
         </form>
       )}
 
-      {/* Modal de Concessão de Cortesia */}
+      {/* Modal de Concessão / Edição de Cortesia */}
       {cortesiaModalOpen && selectedSubForCortesia && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <form
             onSubmit={handleSaveCortesia}
-            className="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-[#D9E2D4] space-y-4 animate-scale-in"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-[#D9E2D4] space-y-5 animate-scale-in"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+            <div className="flex items-center gap-3 pb-3 border-b border-[#D9E2D4]">
+              <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
                 <Gift className="w-5 h-5" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h3 className="font-serif italic text-xl font-semibold text-[#26362B]">
-                  Conceder Cortesia
+                  {selectedSubForCortesia.is_cortesia
+                    ? 'Editar Cortesia Ativa'
+                    : 'Conceder Cortesia'}
                 </h3>
-                <p className="text-xs text-[#6B7A6F]">
-                  Conta: {selectedSubForCortesia.expand?.user?.email}
+                <p className="text-xs text-[#26362B] font-medium truncate">
+                  {getUserDisplayName(selectedSubForCortesia.expand?.user)}
+                </p>
+                <p className="text-[11px] text-[#6B7A6F] truncate">
+                  {getUserDisplayEmail(selectedSubForCortesia.expand?.user)}
                 </p>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                Plano liberado
+            {/* Seleção do Plano */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-[#26362B] uppercase tracking-wider">
+                Escolha o Plano da Cortesia
               </label>
-              <select
-                value={cortesiaPlano}
-                onChange={(e) => setCortesiaPlano(e.target.value as PlanoKey)}
-                className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
-              >
-                <option value="essencial">Sevi Essencial (1 perfil, 100MB)</option>
-                <option value="completo">Sevi Completo (3 perfis, 1GB, OCR)</option>
-                <option value="familia">Sevi Família (até 5 perfis, 2GB, OCR compartilhado)</option>
-              </select>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {(['essencial', 'completo', 'familia'] as PlanoKey[]).map((pkey) => {
+                  const cfg = PLANS_CONFIG[pkey]
+                  const isSelected = cortesiaPlano === pkey
+                  return (
+                    <button
+                      type="button"
+                      key={pkey}
+                      onClick={() => setCortesiaPlano(pkey)}
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-[#4C7A5A] bg-[#E7F0E3]/70 ring-2 ring-[#4C7A5A]/30'
+                          : 'border-[#D9E2D4] hover:bg-[#F6F4EF]'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-xs text-[#26362B]">
+                            {cfg.nome.replace('Sevi ', '')}
+                          </span>
+                          {pkey === 'completo' && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-[#4C7A5A] text-white">
+                              Rec.
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] font-bold text-[#4C7A5A]">{cfg.preco}</div>
+                      </div>
+                      <p className="text-[10px] text-[#6B7A6F] mt-2 line-clamp-2">
+                        {cfg.maxProfiles} {cfg.maxProfiles === 1 ? 'perfil' : 'perfis'} •{' '}
+                        {cfg.monthlyOcrDocs > 0 ? `${cfg.monthlyOcrDocs} OCR/mês` : 'Sem OCR'}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-[#6B7A6F]">
+                Plano selecionado: <strong>{PLANS_CONFIG[cortesiaPlano]?.nome}</strong> (
+                {PLANS_CONFIG[cortesiaPlano]?.preco}) — {PLANS_CONFIG[cortesiaPlano]?.tagline}
+              </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                Data de validade da cortesia (Corte)
-              </label>
+            {/* Validade e Atalhos de Prazo */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-[#26362B] uppercase tracking-wider">
+                  Prazo / Data de Validade da Cortesia
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[#6B7A6F]">Sugerir:</span>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPrazoSugerido(6)}
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[#D9E2D4] hover:bg-[#F6F4EF] text-[#26362B] transition cursor-pointer"
+                  >
+                    6 meses
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPrazoSugerido(12)}
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[#D9E2D4] hover:bg-[#F6F4EF] text-[#26362B] transition cursor-pointer"
+                  >
+                    1 ano
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCortesiaDataAte('2099-12-31')}
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[#D9E2D4] hover:bg-[#F6F4EF] text-[#26362B] transition cursor-pointer"
+                  >
+                    Livre / 2099
+                  </button>
+                </div>
+              </div>
+
               <input
                 type="date"
                 required
                 value={cortesiaDataAte}
                 onChange={(e) => setCortesiaDataAte(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
               />
-              <span className="text-[10px] text-[#6B7A6F] mt-0.5 block">
-                Use 2099-12-31 para cortesia vitalícia / sem data de corte.
+              <span className="text-[10px] text-[#6B7A6F] block">
+                Cortesias têm prazo livre: a data é editável a qualquer momento. Use 2099-12-31 para
+                cortesias sem prazo de expiração (vitalícia).
               </span>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                Motivo / Notas internas
+            {/* Motivo e Notas */}
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-[#26362B] uppercase tracking-wider">
+                Motivo / Notas Internas da Administração
               </label>
               <input
                 type="text"
                 value={cortesiaNotas}
                 onChange={(e) => setCortesiaNotas(e.target.value)}
-                placeholder="Ex.: Conta de teste da dona, parente, parceiro"
-                className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                placeholder="Ex.: Conta de parceiro médico, parente, testador VIP"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3">
-              <button
-                type="button"
-                onClick={() => setCortesiaModalOpen(false)}
-                className="px-4 py-2 rounded-full border border-[#D9E2D4] text-xs font-medium text-[#6B7A6F]"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={savingCortesia}
-                className="px-5 py-2 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold shadow transition disabled:opacity-50"
-              >
-                {savingCortesia ? 'Salvando...' : 'Confirmar cortesia'}
-              </button>
+            <div className="flex items-center justify-between pt-3 border-t border-[#D9E2D4]">
+              {selectedSubForCortesia.is_cortesia ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sub = selectedSubForCortesia
+                    setCortesiaModalOpen(false)
+                    handleRevokeCortesia(sub)
+                  }}
+                  className="px-3 py-2 rounded-full text-red-600 hover:bg-red-50 text-xs font-semibold transition cursor-pointer"
+                >
+                  Revogar cortesia
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCortesiaModalOpen(false)}
+                  className="px-4 py-2 rounded-full border border-[#D9E2D4] text-xs font-medium text-[#6B7A6F] hover:bg-[#F6F4EF] transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCortesia}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold shadow transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>
+                    {savingCortesia
+                      ? 'Salvando...'
+                      : selectedSubForCortesia.is_cortesia
+                        ? 'Salvar alterações'
+                        : 'Ativar cortesia'}
+                  </span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -779,8 +950,11 @@ export default function AdminPage() {
                 <h3 className="font-serif italic text-lg font-semibold text-[#26362B]">
                   Recusar Pagamento PIX
                 </h3>
-                <p className="text-xs text-[#6B7A6F]">
-                  Usuário: {paymentToRecuse.expand?.user?.email}
+                <p className="text-xs text-[#26362B] font-medium">
+                  {getUserDisplayName(paymentToRecuse.expand?.user)}
+                </p>
+                <p className="text-[11px] text-[#6B7A6F]">
+                  {getUserDisplayEmail(paymentToRecuse.expand?.user)}
                 </p>
               </div>
             </div>
