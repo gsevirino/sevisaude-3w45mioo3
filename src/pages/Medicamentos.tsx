@@ -21,6 +21,7 @@ import type {
 import {
   normalizarHorarios,
   formatarChipHorario,
+  formatarDoseComUnidade,
   formatarPeriodicidadeLegivel,
   DIAS_SEMANA,
   PERIODICIDADE_OPTIONS,
@@ -814,7 +815,10 @@ export default function Medicamentos() {
                         <span className="text-[#6B7A6F] block text-[11px]">Dose prescrita:</span>
                         <span className="font-semibold">
                           {m.dose_prescrita
-                            ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                            ? formatarDoseComUnidade(
+                                m.dose_prescrita,
+                                m.unidade_dose || m.forma || '',
+                              )
                             : 'Não informada'}
                         </span>
                       </div>

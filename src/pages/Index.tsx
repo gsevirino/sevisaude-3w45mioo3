@@ -8,7 +8,12 @@ import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getMedicamentos, getConsultas, getExames, getDocumentos } from '@/services/healthService'
 import type { Medicamento, Consulta, Exame, Documento } from '@/types/health'
-import { normalizarHorarios, medicamentoTomaHoje } from '@/lib/medicamentoUtils'
+import {
+  normalizarHorarios,
+  medicamentoTomaHoje,
+  formatarDoseComUnidade,
+  pluralizarUnidade,
+} from '@/lib/medicamentoUtils'
 import {
   Pill,
   CalendarCheck,
@@ -113,8 +118,9 @@ export default function Index() {
 
   medsQueTomaHoje.forEach((m) => {
     const list = normalizarHorarios(m.horarios)
+    const unitPadrao = m.unidade_dose || m.forma || ''
     const doseDesc = m.dose_prescrita
-      ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+      ? formatarDoseComUnidade(m.dose_prescrita, unitPadrao)
       : m.concentracao || m.dosagem || ''
 
     list.forEach((h) => {
@@ -123,7 +129,7 @@ export default function Index() {
         dose: doseDesc,
         time: h.hora,
         quantidade: h.quantidade,
-        unidade: m.unidade_dose || m.forma || '',
+        unidade: unitPadrao,
       })
     })
   })
@@ -414,7 +420,7 @@ export default function Index() {
                     <span>
                       Próxima dose: <strong>{nextDose.time}</strong> ({nextDose.medName}
                       {nextDose.quantidade
-                        ? ` • ${nextDose.quantidade} ${nextDose.unidade || ''}`.trimEnd()
+                        ? ` • ${formatarDoseComUnidade(nextDose.quantidade, nextDose.unidade || '')}`.trimEnd()
                         : ''}
                       {!nextDose.quantidade && nextDose.dose ? ` • ${nextDose.dose}` : ''})
                     </span>

@@ -14,6 +14,8 @@ import {
 import {
   normalizarHorarios,
   formatarChipHorario,
+  formatarDoseComUnidade,
+  pluralizarUnidade,
   formatarPeriodicidadeLegivel,
 } from '@/lib/medicamentoUtils'
 import type {
@@ -241,7 +243,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
     medsEmUso.length > 0
       ? medsEmUso.map((m) => {
           const dose = m.dose_prescrita
-            ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+            ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
             : m.concentracao || m.dosagem || '—'
           const normHorarios = normalizarHorarios(m.horarios)
           const horarios =
@@ -424,7 +426,7 @@ export function exportarMedicamentosPDF(data: ExportDataPayload): void {
     meds.length > 0
       ? meds.map((m) => {
           const dose = m.dose_prescrita
-            ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+            ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
             : m.concentracao || m.dosagem || '—'
           const normHorarios = normalizarHorarios(m.horarios)
           const horarios =
@@ -1015,11 +1017,16 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
       ? meds.map((m) => [
           m.nome,
           m.dose_prescrita
-            ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+            ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
             : m.concentracao || m.dosagem || '—',
           m.status,
           m.frequencia || '—',
-          Array.isArray(m.horarios) ? m.horarios.join(', ') : '—',
+          (() => {
+            const norm = normalizarHorarios(m.horarios)
+            return norm.length > 0
+              ? norm.map((h) => formatarChipHorario(h, m.unidade_dose || m.forma || '')).join(', ')
+              : '—'
+          })(),
           m.expand?.medico?.nome || '—',
         ])
       : [['Nenhum medicamento registrado.', '', '', '', '', '']]
@@ -1193,7 +1200,9 @@ export function exportarMedicamentosCSV(data: ExportDataPayload): void {
         m.nome,
         m.principio_ativo || '',
         m.dose_prescrita || '',
-        m.unidade_dose || '',
+        m.dose_prescrita && m.unidade_dose
+          ? pluralizarUnidade(m.unidade_dose, m.dose_prescrita)
+          : m.unidade_dose || '',
         m.concentracao || m.dosagem || '',
         m.forma || '',
         pLegivel,

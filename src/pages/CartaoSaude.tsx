@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getMedicamentos } from '@/services/healthService'
 import type { Medicamento } from '@/types/health'
-import { formatarPeriodicidadeLegivel } from '@/lib/medicamentoUtils'
+import { formatarPeriodicidadeLegivel, formatarDoseComUnidade } from '@/lib/medicamentoUtils'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
 import ProfileContextBadge from '@/components/ProfileContextBadge'
@@ -193,7 +193,7 @@ export default function CartaoSaude() {
                     <span className="opacity-80 text-[10px]">
                       (
                       {m.dose_prescrita
-                        ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                        ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
                         : m.concentracao || m.dosagem || 'dose padrão'}
                       )
                     </span>
@@ -342,7 +342,7 @@ export default function CartaoSaude() {
                   ) : (
                     medsToDisplay.map((m) => {
                       const doseText = m.dose_prescrita
-                        ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                        ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
                         : m.concentracao || m.dosagem || ''
                       const pLegivel = formatarPeriodicidadeLegivel(
                         m.periodicidade,
@@ -490,7 +490,10 @@ export default function CartaoSaude() {
                           </td>
                           <td className="p-3">
                             {m.dose_prescrita
-                              ? `${m.dose_prescrita} ${m.unidade_dose || ''}`
+                              ? formatarDoseComUnidade(
+                                  m.dose_prescrita,
+                                  m.unidade_dose || m.forma || '',
+                                )
                               : m.concentracao || m.dosagem || '—'}
                             {m.via_administracao && ` • ${m.via_administracao}`}
                           </td>

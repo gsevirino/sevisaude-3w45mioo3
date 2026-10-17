@@ -83,28 +83,108 @@ export function normalizarHorarios(raw: any): HorarioItem[] {
 }
 
 /**
+ * Normaliza e pluraliza ou singulariza a unidade farmacêutica de acordo com a quantidade informada.
+ * - Quantidade > 1: plural ("comprimidos", "cápsulas", "gotas", "adesivos", "folhas")
+ * - Quantidade <= 1: singular ("comprimido", "cápsula", "gota", "adesivo", "folha")
+ * - Símbolos e unidades de medida (ml, mg, g, mcg, ui): mantidos sem flexão
+ */
+export function pluralizarUnidade(
+  unidade?: string | null,
+  quantidade?: number | string | null,
+): string {
+  if (!unidade || typeof unidade !== 'string') return ''
+  const trimmed = unidade.trim()
+  if (!trimmed) return ''
+
+  // Se quantidade não foi informada ou não é número válido, retorna como está
+  if (quantidade === null || quantidade === undefined || quantidade === '') {
+    return trimmed
+  }
+
+  let num: number | null = null
+  if (typeof quantidade === 'number') {
+    num = Number.isNaN(quantidade) ? null : quantidade
+  } else if (typeof quantidade === 'string') {
+    const parsed = Number(quantidade.trim().replace(',', '.'))
+    num = Number.isNaN(parsed) ? null : parsed
+  }
+
+  if (num === null) {
+    return trimmed
+  }
+
+  const isPlural = num > 1
+  const lower = trimmed.toLowerCase()
+
+  // Unidades de medida / siglas fixas que não flexionam
+  const unidadesInvariaveis = ['ml', 'l', 'mg', 'g', 'mcg', 'ui', 'kg', 'cm', 'mm']
+  if (unidadesInvariaveis.includes(lower)) {
+    return trimmed
+  }
+
+  // Obter forma singular base
+  let singular = trimmed
+  if (lower === 'gotas' || lower === 'gota') {
+    singular = 'gota'
+  } else if (lower === 'aplicações' || lower === 'aplicação') {
+    singular = 'aplicação'
+  } else if (lower === 'injeções' || lower === 'injeção') {
+    singular = 'injeção'
+  } else if (lower === 'colheres' || lower === 'colher') {
+    singular = 'colher'
+  } else if (lower.endsWith('s') && lower.length > 2) {
+    // Remove o 's' final de unidades terminadas em vogal + s (ex.: comprimidos -> comprimido, cápsulas -> cápsula)
+    singular = trimmed.slice(0, -1)
+  }
+
+  if (!isPlural) {
+    return singular
+  }
+
+  // Flexão para o plural a partir do singular
+  const singLower = singular.toLowerCase()
+  if (singLower === 'gota') return 'gotas'
+  if (singLower === 'aplicação') return 'aplicações'
+  if (singLower === 'injeção') return 'injeções'
+  if (singLower === 'colher') return 'colheres'
+  if (singLower.endsWith('r') || singLower.endsWith('z')) return `${singular}es`
+  if (singLower.endsWith('s')) return singular
+
+  return `${singular}s`
+}
+
+/**
+ * Formata um valor de dose prescrita ou quantidade junto com sua unidade, aplicando pluralização correta.
+ * Ex.: (7, 'comprimido') -> "7 comprimidos"
+ * Ex.: (1, 'comprimido') -> "1 comprimido"
+ * Ex.: ('10', 'gotas')   -> "10 gotas"
+ * Ex.: (1, 'gotas')      -> "1 gota"
+ */
+export function formatarDoseComUnidade(
+  quantidade?: number | string | null,
+  unidade?: string | null,
+): string {
+  if (quantidade === null || quantidade === undefined || String(quantidade).trim() === '') {
+    return ''
+  }
+  const qtdStr = String(quantidade).trim()
+  if (!unidade || !unidade.trim()) {
+    return qtdStr
+  }
+  const unitFlex = pluralizarUnidade(unidade, quantidade)
+  return `${qtdStr} ${unitFlex}`.trim()
+}
+
+/**
  * Formata um HorarioItem como texto amigável:
- * ex.: "08:00" ou "08:00 · 4 comprimidos"
+ * ex.: "08:00" ou "08:00 · 4 comprimidos" ou "08:00 · 1 comprimido"
  */
 export function formatarChipHorario(item: HorarioItem, unidade?: string): string {
   if (!item.quantidade) {
     return item.hora
   }
-  const unit = unidade ? ` ${unidade}${item.quantidade > 1 ? plurallizarUnidade(unidade) : ''}` : ''
-  return `${item.hora} · ${item.quantidade}${unit}`
-}
-
-function plurallizarUnidade(unidade: string): string {
-  const u = unidade.toLowerCase().trim()
-  if (u.endsWith('s')) return ''
-  if (u.endsWith('m')) return '' // ex: 10 ml
-  if (u === 'gota') return 's'
-  if (u === 'comprimido') return 's'
-  if (u === 'cápsula') return 's'
-  if (u === 'dose') return 's'
-  if (u === 'ampola') return 's'
-  if (u === 'adesivo') return 's'
-  return 's'
+  const unitStr = unidade ? ` ${pluralizarUnidade(unidade, item.quantidade)}` : ''
+  return `${item.hora} · ${item.quantidade}${unitStr}`
 }
 
 /**
