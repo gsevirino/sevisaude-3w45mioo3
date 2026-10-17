@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
-import { createConsulta } from '@/services/healthService'
+import React, { useState, useEffect } from 'react'
+import { createConsulta, getConsultas } from '@/services/healthService'
 import type { Consulta, TipoConsulta, StatusConsulta, Medico } from '@/types/health'
 import { useHealthProfile } from '@/context/HealthProfileContext'
 import { useSubscription } from '@/context/SubscriptionContext'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
-import { CalendarCheck, X, Loader2, AlertCircle } from 'lucide-react'
+import { extrairDataIso, formatarHora } from '@/lib/dateUtils'
+import { CalendarCheck, X, Loader2, AlertCircle, Check } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const TIPOS: TipoConsulta[] = ['Presencial', 'Teleconsulta', 'Domiciliar']
@@ -12,14 +13,48 @@ const TIPOS: TipoConsulta[] = ['Presencial', 'Teleconsulta', 'Domiciliar']
 interface QuickCreateConsultaModalProps {
   open: boolean
   medicos: Medico[]
+  consultas?: Consulta[]
+  defaultMedicoId?: string
   onClose: () => void
   onSuccess: (consulta: Consulta) => void
   onOpenNewMedico?: () => void
 }
 
+function findSavedConsultaForMedico(
+  selectedMedicoId: string,
+  consultas: Consulta[],
+  profileId?: string,
+): Consulta | null {
+  if (!selectedMedicoId || !consultas || consultas.length === 0) return null
+
+  // Filtra consultas do médico selecionado (priorizando o perfil ativo)
+  const medConsultas = consultas.filter((c) => {
+    if (c.medico !== selectedMedicoId) return false
+    if (profileId && c.profile && c.profile !== profileId) return false
+    return true
+  })
+
+  const candidatos =
+    medConsultas.length > 0 ? medConsultas : consultas.filter((c) => c.medico === selectedMedicoId)
+
+  if (candidatos.length === 0) return null
+
+  // Ordena por data decrescente (mais recente primeiro)
+  return [...candidatos].sort((a, b) => {
+    const dataA = a.data ? new Date(a.data).getTime() : 0
+    const dataB = b.data ? new Date(b.data).getTime() : 0
+    if (dataB !== dataA) return dataB - dataA
+    const createdA = a.created ? new Date(a.created).getTime() : 0
+    const createdB = b.created ? new Date(b.created).getTime() : 0
+    return createdB - createdA
+  })[0]
+}
+
 export function QuickCreateConsultaModal({
   open,
   medicos,
+  consultas: consultasProp,
+  defaultMedicoId,
   onClose,
   onSuccess,
   onOpenNewMedico,
@@ -28,16 +63,118 @@ export function QuickCreateConsultaModal({
   const { isReadOnly } = useSubscription()
   const { triggerRefresh } = useHealthRefresh()
 
+  const [localConsultas, setLocalConsultas] = useState<Consulta[]>(consultasProp || [])
   const [medicoId, setMedicoId] = useState('')
-  const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
-  const [horario, setHorario] = useState('09:00')
+  const [data, setData] = useState('')
+  const [horario, setHorario] = useState('')
   const [tipo, setTipo] = useState<TipoConsulta>('Presencial')
   const [status, setStatus] = useState<StatusConsulta>('Realizada')
   const [motivoAtendimento, setMotivoAtendimento] = useState('')
   const [local, setLocal] = useState('')
+  const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Sincroniza consultas vindas por props
+  useEffect(() => {
+    if (consultasProp) {
+      setLocalConsultas(consultasProp)
+    }
+  }, [consultasProp])
+
+  // Se consultasProp não for fornecido ou estiver vazio, busca do backend ao abrir
+  useEffect(() => {
+    if (!open) return
+    let isMounted = true
+    if (!consultasProp || consultasProp.length === 0) {
+      getConsultas(activeProfile?.id)
+        .then((records) => {
+          if (isMounted) {
+            setLocalConsultas(records)
+          }
+        })
+        .catch((err) => {
+          console.error('Erro ao buscar consultas para o modal rápido:', err)
+        })
+    }
+    return () => {
+      isMounted = false
+    }
+  }, [open, consultasProp, activeProfile?.id])
+
+  const applyMedicoSelection = (selectedId: string, availableConsultas = localConsultas) => {
+    setMedicoId(selectedId)
+    setErrorMessage(null)
+
+    if (!selectedId) {
+      setData('')
+      setHorario('')
+      setMotivoAtendimento('')
+      setLocal('')
+      setTipo('Presencial')
+      setStatus('Realizada')
+      setHasLoadedSavedData(false)
+      return
+    }
+
+    const saved = findSavedConsultaForMedico(selectedId, availableConsultas, activeProfile?.id)
+    if (saved) {
+      setData(extrairDataIso(saved.data) || '')
+      setHorario(formatarHora(saved.horario) || '')
+      setTipo(saved.tipo || 'Presencial')
+      setStatus(saved.status || 'Realizada')
+      setMotivoAtendimento(saved.motivo_atendimento || '')
+      setLocal(saved.local || '')
+      setHasLoadedSavedData(true)
+    } else {
+      // Médico novo ou sem consultas anteriores salvas:
+      // Campos de data/hora de consulta iniciam vazios (sem sugerir data de hoje)
+      setData('')
+      setHorario('')
+      setMotivoAtendimento('')
+      setLocal('')
+      setTipo('Presencial')
+      setStatus('Realizada')
+      setHasLoadedSavedData(false)
+    }
+  }
+
+  // Ao abrir o modal, inicializa os campos
+  useEffect(() => {
+    if (open) {
+      setErrorMessage(null)
+      const initialMedicoId = defaultMedicoId || ''
+      if (initialMedicoId) {
+        applyMedicoSelection(initialMedicoId, localConsultas)
+      } else {
+        setMedicoId('')
+        setData('')
+        setHorario('')
+        setMotivoAtendimento('')
+        setLocal('')
+        setTipo('Presencial')
+        setStatus('Realizada')
+        setHasLoadedSavedData(false)
+      }
+    }
+  }, [open, defaultMedicoId])
+
+  // Se localConsultas for carregado assincronamente enquanto o modal já estiver aberto
+  useEffect(() => {
+    if (open && medicoId && !data && localConsultas.length > 0) {
+      const saved = findSavedConsultaForMedico(medicoId, localConsultas, activeProfile?.id)
+      if (saved) {
+        setData(extrairDataIso(saved.data) || '')
+        setHorario(formatarHora(saved.horario) || '')
+        setTipo(saved.tipo || 'Presencial')
+        setStatus(saved.status || 'Realizada')
+        setMotivoAtendimento(saved.motivo_atendimento || '')
+        setLocal(saved.local || '')
+        setHasLoadedSavedData(true)
+      }
+    }
+  }, [open, medicoId, data, localConsultas, activeProfile?.id])
 
   if (!open) return null
 
@@ -88,8 +225,12 @@ export function QuickCreateConsultaModal({
 
       triggerRefresh()
       // Limpa os campos
+      setMedicoId('')
+      setData('')
+      setHorario('')
       setMotivoAtendimento('')
       setLocal('')
+      setHasLoadedSavedData(false)
       onSuccess(nova)
       onClose()
     } catch (err: any) {
@@ -185,7 +326,7 @@ export function QuickCreateConsultaModal({
             <select
               required
               value={medicoId}
-              onChange={(e) => setMedicoId(e.target.value)}
+              onChange={(e) => applyMedicoSelection(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-[#26362B] text-xs focus:ring-2 focus:ring-[#4C7A5A] outline-none"
             >
               <option value="">Selecione o profissional...</option>
@@ -195,6 +336,12 @@ export function QuickCreateConsultaModal({
                 </option>
               ))}
             </select>
+            {hasLoadedSavedData && (
+              <p className="text-[11px] text-[#4C7A5A] mt-1 flex items-center gap-1 font-medium">
+                <Check className="w-3 h-3 text-[#4C7A5A]" />
+                Dados preenchidos com base no registro salvo deste profissional.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

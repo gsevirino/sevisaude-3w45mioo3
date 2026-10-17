@@ -1461,6 +1461,8 @@ export default function Exames() {
       <QuickCreateConsultaModal
         open={quickConsultaModalOpen}
         medicos={medicos}
+        consultas={consultas}
+        defaultMedicoId={medicoId}
         onClose={() => setQuickConsultaModalOpen(false)}
         onOpenNewMedico={() => {
           setQuickConsultaModalOpen(false)
