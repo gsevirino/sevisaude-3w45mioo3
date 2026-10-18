@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T20:57:41.522Z",
+  "generatedAt": "2026-10-18T00:25:26.363Z",
   "collections": [
     {
       "name": "users",
@@ -194,8 +194,12 @@
             "cápsula",
             "xarope",
             "solução",
+            "gotas",
             "injetável",
             "creme",
+            "pomada",
+            "spray",
+            "adesivo",
             "outro"
           ]
         },

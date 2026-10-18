@@ -62,6 +62,7 @@ import {
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatarData, formatarHora, formatarTimestampLocal, extrairDataIso } from '@/lib/dateUtils'
+import { getErrorMessage, extractFieldErrors } from '@/lib/pocketbase/errors'
 import { OCRReviewModal } from '@/components/OCRReviewModal'
 
 const FORMAS: { label: string; value: FormaFarmaceutica }[] = [
@@ -397,9 +398,17 @@ export default function Medicamentos() {
         setFormOpen(false)
         triggerRefresh()
       } catch (err: any) {
+        const fieldErrors = extractFieldErrors(err)
+        let friendlyMessage = getErrorMessage(err)
+        if (Object.keys(fieldErrors).length > 0) {
+          friendlyMessage = Object.entries(fieldErrors)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(' | ')
+        }
         toast({
           title: 'Erro ao cadastrar',
-          description: err?.message || 'Tente novamente.',
+          description:
+            friendlyMessage || 'Não foi possível cadastrar o medicamento. Verifique os dados.',
           variant: 'destructive',
         })
       } finally {
@@ -479,9 +488,16 @@ export default function Medicamentos() {
         triggerRefresh()
       }
     } catch (err: any) {
+      const fieldErrors = extractFieldErrors(err)
+      let friendlyMessage = getErrorMessage(err)
+      if (Object.keys(fieldErrors).length > 0) {
+        friendlyMessage = Object.entries(fieldErrors)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(' | ')
+      }
       toast({
         title: 'Erro ao gravar auditoria',
-        description: err?.message || 'Tente novamente.',
+        description: friendlyMessage || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {

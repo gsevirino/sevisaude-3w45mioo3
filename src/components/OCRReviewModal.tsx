@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { extrairDataIso } from '@/lib/dateUtils'
+import { getErrorMessage, extractFieldErrors } from '@/lib/pocketbase/errors'
 
 const FORMAS: { label: string; value: FormaFarmaceutica }[] = [
   { label: 'Comprimido', value: 'comprimido' },
@@ -279,9 +280,16 @@ export function OCRReviewModal({
       onClose()
     } catch (err: any) {
       console.error('Erro ao confirmar dados do OCR:', err)
+      const fieldErrors = extractFieldErrors(err)
+      let friendlyMessage = getErrorMessage(err)
+      if (Object.keys(fieldErrors).length > 0) {
+        friendlyMessage = Object.entries(fieldErrors)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(' | ')
+      }
       toast({
         title: 'Erro ao salvar registros',
-        description: err?.message || 'Tente novamente.',
+        description: friendlyMessage || 'Tente novamente.',
         variant: 'destructive',
       })
     } finally {
