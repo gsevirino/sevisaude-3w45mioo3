@@ -8,26 +8,33 @@ import ProfileContextBadge from '@/components/ProfileContextBadge'
 import { formatarData } from '@/lib/dateUtils'
 import { useHealthRefresh } from '@/context/HealthRefreshContext'
 import {
-  CreditCard,
   Printer,
   ShieldCheck,
   AlertTriangle,
   PhoneCall,
   Check,
-  Calendar,
   AlertCircle,
   Maximize2,
   Minimize2,
-  FileText,
-  User,
   Activity,
   Layers,
+  Download,
+  FileCheck,
+  CreditCard,
+  Droplet,
+  Info,
+  Sliders,
 } from 'lucide-react'
 import { SeviSaudeIcon } from '@/components/SeviSaudeLogo'
+import {
+  exportarCartaoSaudeA4,
+  exportarCartaoSaudeDireto,
+  type CartaoDados,
+} from '@/services/cartaoPdfService'
 
 export default function CartaoSaude() {
   const { user } = useAuth()
-  const { activeProfile, isOwner } = useHealthProfile()
+  const { activeProfile } = useHealthProfile()
   const { refreshKey } = useHealthRefresh()
   const [medicamentos, setMedicamentos] = useState<Medicamento[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,9 +44,16 @@ export default function CartaoSaude() {
   const [includeAlergias, setIncludeAlergias] = useState(true)
   const [includeCondicoes, setIncludeCondicoes] = useState(true)
   const [includeEmergencia, setIncludeEmergencia] = useState(true)
+  const [includeTipoSanguineo, setIncludeTipoSanguineo] = useState(true)
 
-  // Modo de visualização: compacto (tamanho padrão cartão de visita / bancário frente e verso) vs ampliado (folha completa / expandido)
+  // Campo opcional do cartão: Nome do Plano de Saúde ou SUS
+  const [planoSaudeOuSus, setPlanoSaudeOuSus] = useState<string>('')
+
+  // Modo de visualização da página: formato compacto de carteirinha (96×65 mm) vs folha ampliada A4
   const [formatoAmpliado, setFormatoAmpliado] = useState(false)
+
+  // Escala de zoom da prévia na tela: 100% (tamanho real ~363×246px a 96dpi), 125% ou 140% para conforto visual
+  const [escalaPrevia, setEscalaPrevia] = useState<'real' | 'conforto' | 'grande'>('conforto')
 
   const printAreaRef = useRef<HTMLDivElement>(null)
 
@@ -62,14 +76,19 @@ export default function CartaoSaude() {
     load()
   }, [refreshKey, activeProfile?.id])
 
+  // Inicializar planoSaudeOuSus a partir do perfil se houver informações em observacoes ou meta
+  useEffect(() => {
+    if (activeProfile?.observacoes?.toLowerCase().includes('sus')) {
+      setPlanoSaudeOuSus('SUS')
+    } else if (activeProfile?.observacoes?.toLowerCase().includes('unimed')) {
+      setPlanoSaudeOuSus('Unimed')
+    }
+  }, [activeProfile])
+
   const toggleMed = (id: string) => {
     setSelectedMeds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     )
-  }
-
-  const handlePrint = () => {
-    window.print()
   }
 
   const currentDate = new Date().toLocaleDateString('pt-BR', {
@@ -80,59 +99,188 @@ export default function CartaoSaude() {
 
   const medsToDisplay = medicamentos.filter((m) => selectedMeds.includes(m.id))
 
+  // Dados consolidados do titular selecionado no seletor de topo
+  const nomeTitular = activeProfile?.nome || user?.name || 'Paciente SeviSaúde'
+  const dataNascimento = activeProfile?.data_nascimento || user?.meta?.dataNascimento
+  const tipoSanguineo = (activeProfile?.tipo_sanguineo || '').trim()
+  const alergiasTexto = activeProfile?.alergias || user?.alergias || ''
+  const condicoesTexto = activeProfile?.condicoes_saude || user?.condicoes_saude || ''
+  const contatoEmergenciaNome =
+    activeProfile?.contato_emergencia_nome || user?.contato_emergencia_nome || ''
+  const contatoEmergenciaParentesco =
+    activeProfile?.contato_emergencia_parentesco || user?.contato_emergencia_parentesco || ''
+  const contatoEmergenciaTelefone =
+    activeProfile?.contato_emergencia_telefone || user?.contato_emergencia_telefone || ''
+
+  // Monta payload unificado para exportação milimétrica em PDF
+  const dadosCartao: CartaoDados = {
+    profile: activeProfile,
+    nomeTitular,
+    dataNascimento,
+    tipoSanguineo: includeTipoSanguineo ? tipoSanguineo : '',
+    alergias: includeAlergias ? alergiasTexto : '',
+    condicoesSaude: includeCondicoes ? condicoesTexto : '',
+    contatoEmergenciaNome: includeEmergencia ? contatoEmergenciaNome : '',
+    contatoEmergenciaParentesco: includeEmergencia ? contatoEmergenciaParentesco : '',
+    contatoEmergenciaTelefone: includeEmergencia ? contatoEmergenciaTelefone : '',
+    planoSaudeOuSus,
+    medicamentos: medsToDisplay,
+    dataAtualizacao: currentDate,
+  }
+
+  // Ações de exportação em PDF
+  const handleExportarA4 = () => {
+    const slug = nomeTitular.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    exportarCartaoSaudeA4(dadosCartao, `cartao-saude-${slug}-96x65mm-a4.pdf`)
+  }
+
+  const handleExportarDireto = () => {
+    const slug = nomeTitular.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    exportarCartaoSaudeDireto(dadosCartao, `carteirinha-${slug}-96x65mm.pdf`)
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  // Larguras para cada nível de escala visual na tela (mantendo proporção exata 96 : 65)
+  // Tamanho 1:1 físico em 96dpi = 96 / 25.4 * 96 ≈ 363px x 246px
+  const widthClasses = {
+    real: 'w-[363px] h-[246px]', // 100% escala real aproximada de tela (96dpi)
+    conforto: 'w-[420px] h-[284px]', // ~115% (leitura confortável em monitores)
+    grande: 'w-[480px] h-[325px]', // ~132% (para visualização ampliada)
+  }[escalaPrevia]
+
   return (
     <div className="space-y-8 animate-fade-in pb-12">
-      {/* Header (oculto na impressão) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+      {/* Header com identificação do titular ativo e ações de impressão */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 print:hidden">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <ProfileContextBadge />
+            <span className="text-[11px] font-semibold text-[#4C7A5A] uppercase tracking-wider bg-[#E7F0E3] px-2.5 py-0.5 rounded-full">
+              Formato Físico 96 × 65 mm
+            </span>
+          </div>
           <h1 className="font-serif italic text-3xl md:text-4xl text-[#26362B] font-semibold tracking-tight">
             Meu cartão de saúde
           </h1>
-          <p className="text-[#6B7A6F] text-sm mt-1">
-            Gere seu cartão compacto de emergência (frente e verso) com medicamentos em uso,
-            alergias e contatos
+          <p className="text-[#6B7A6F] text-xs md:text-sm mt-1 max-w-2xl">
+            Carteirinha física frente e verso padronizada em <strong>96 mm × 65 mm</strong> (formato
+            carteirinha/plastificado), contendo identificação, alergias, contato de emergência e
+            medicamentos em uso contínuo sem horários.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Alternar formato ampliado (tabela expandida) vs formato carteirinha */}
           <button
             onClick={() => setFormatoAmpliado(!formatoAmpliado)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-[#D9E2D4] bg-white hover:bg-[#F6F4EF] text-xs font-semibold text-[#26362B] transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#D9E2D4] bg-white hover:bg-[#F6F4EF] text-xs font-semibold text-[#26362B] transition cursor-pointer shadow-sm"
           >
             {formatoAmpliado ? (
               <>
                 <Minimize2 className="w-3.5 h-3.5" />
-                <span>Formato Cartão Compacto</span>
+                <span>Modo Carteirinha (96×65 mm)</span>
               </>
             ) : (
               <>
                 <Maximize2 className="w-3.5 h-3.5" />
-                <span>Formato Folha Ampliada</span>
+                <span>Modo Folha Ampliada</span>
               </>
             )}
           </button>
 
+          {/* Download PDF direto 96x65 mm */}
+          <button
+            onClick={handleExportarDireto}
+            title="Gera PDF com páginas no tamanho exato 96 mm x 65 mm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#4C7A5A] bg-[#E7F0E3] hover:bg-[#DCE9D4] text-[#26362B] text-xs font-semibold transition cursor-pointer shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5 text-[#4C7A5A]" />
+            <span>PDF Direto (96×65 mm)</span>
+          </button>
+
+          {/* Download PDF A4 com marca de corte */}
+          <button
+            onClick={handleExportarA4}
+            title="Gera PDF em folha A4 com marca de recorte, dobra e régua de conferência"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold shadow-md hover:shadow-lg transition cursor-pointer"
+          >
+            <FileCheck className="w-4 h-4" />
+            <span>Baixar PDF A4 para Recorte</span>
+          </button>
+
+          {/* Diálogo nativo do navegador */}
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold shadow-md hover:shadow-lg transition cursor-pointer"
+            title="Abre a tela de impressão do navegador"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-[#D9E2D4] bg-white hover:bg-[#F6F4EF] text-[#26362B] text-xs font-semibold transition cursor-pointer shadow-sm"
           >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir / Salvar PDF</span>
+            <Printer className="w-3.5 h-3.5 text-[#6B7A6F]" />
+            <span className="sr-only sm:not-sr-only">Imprimir</span>
           </button>
         </div>
       </div>
 
-      {/* Seletor de Informações (Oculto na impressão) */}
+      {/* Caixa de personalização e dados exibidos (Oculta na impressão) */}
       <div className="bg-white rounded-3xl p-6 border border-[#D9E2D4] shadow-sm space-y-5 print:hidden">
-        <div className="flex items-center gap-2.5">
-          <Layers className="w-5 h-5 text-[#4C7A5A]" />
-          <h2 className="font-serif italic text-lg text-[#26362B] font-semibold">
-            Personalizar dados exibidos no Cartão
-          </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D9E2D4] pb-4">
+          <div className="flex items-center gap-2.5">
+            <Sliders className="w-5 h-5 text-[#4C7A5A]" />
+            <div>
+              <h2 className="font-serif italic text-lg text-[#26362B] font-semibold">
+                Personalizar dados do Cartão de 96×65 mm
+              </h2>
+              <p className="text-[11px] text-[#6B7A6F]">
+                Ajuste os dados que entram na carteirinha do titular selecionado: {nomeTitular}
+              </p>
+            </div>
+          </div>
+
+          {/* Seletor de Escala da Prévia em tela */}
+          {!formatoAmpliado && (
+            <div className="flex items-center gap-1.5 bg-[#F6F4EF] p-1 rounded-2xl border border-[#D9E2D4] text-xs">
+              <span className="text-[10px] uppercase font-bold text-[#6B7A6F] px-2">Escala:</span>
+              <button
+                type="button"
+                onClick={() => setEscalaPrevia('real')}
+                className={`px-2.5 py-1 rounded-xl font-medium transition cursor-pointer text-[11px] ${
+                  escalaPrevia === 'real'
+                    ? 'bg-white text-[#26362B] shadow-xs font-semibold'
+                    : 'text-[#6B7A6F] hover:text-[#26362B]'
+                }`}
+              >
+                100% Real
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscalaPrevia('conforto')}
+                className={`px-2.5 py-1 rounded-xl font-medium transition cursor-pointer text-[11px] ${
+                  escalaPrevia === 'conforto'
+                    ? 'bg-white text-[#26362B] shadow-xs font-semibold'
+                    : 'text-[#6B7A6F] hover:text-[#26362B]'
+                }`}
+              >
+                115% Conforto
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscalaPrevia('grande')}
+                className={`px-2.5 py-1 rounded-xl font-medium transition cursor-pointer text-[11px] ${
+                  escalaPrevia === 'grande'
+                    ? 'bg-white text-[#26362B] shadow-xs font-semibold'
+                    : 'text-[#6B7A6F] hover:text-[#26362B]'
+                }`}
+              >
+                130% Grande
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Opções globais */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        {/* Opções de campos opcionais */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
             <input
               type="checkbox"
@@ -162,21 +310,86 @@ export default function CartaoSaude() {
             />
             <span className="font-semibold text-[#26362B]">Contato de emergência</span>
           </label>
+
+          <label className="flex items-center gap-2 p-3 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] cursor-pointer hover:bg-[#E7F0E3]/60 transition">
+            <input
+              type="checkbox"
+              checked={includeTipoSanguineo}
+              onChange={(e) => setIncludeTipoSanguineo(e.target.checked)}
+              className="rounded text-[#4C7A5A] focus:ring-[#4C7A5A]"
+            />
+            <span className="font-semibold text-[#26362B]">Grupo sanguíneo</span>
+          </label>
+        </div>
+
+        {/* Identificação de Plano de Saúde ou SUS */}
+        <div className="p-4 rounded-2xl bg-[#FDFCFB] border border-[#D9E2D4] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-[#4C7A5A]" />
+              <label
+                htmlFor="plano-input"
+                className="text-xs font-semibold text-[#26362B] block cursor-pointer"
+              >
+                Nome do Plano de Saúde / SUS (opcional)
+              </label>
+            </div>
+            <p className="text-[11px] text-[#6B7A6F]">
+              Exibido no canto superior do cartão para identificação rápida em postos de atendimento
+            </p>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              id="plano-input"
+              type="text"
+              value={planoSaudeOuSus}
+              onChange={(e) => setPlanoSaudeOuSus(e.target.value)}
+              placeholder="Ex.: SUS, Unimed, Bradesco Saúde, Amil"
+              className="px-3 py-1.5 rounded-xl border border-[#D9E2D4] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] w-full sm:w-64 bg-white"
+            />
+          </div>
         </div>
 
         {/* Seleção de medicamentos */}
         <div>
-          <span className="block text-xs font-semibold text-[#26362B] mb-2 uppercase tracking-wider">
-            Selecione quais medicamentos em uso incluir:
-          </span>
-          {medicamentos.length === 0 ? (
+          <div className="flex items-center justify-between mb-2">
+            <span className="block text-xs font-semibold text-[#26362B] uppercase tracking-wider">
+              Medicamentos em uso a incluir no verso ({medsToDisplay.length}/{medicamentos.length}):
+            </span>
+            <div className="flex items-center gap-2 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setSelectedMeds(medicamentos.map((m) => m.id))}
+                className="text-[#4C7A5A] hover:underline font-medium"
+              >
+                Selecionar todos
+              </button>
+              <span className="text-[#D9E2D4]">|</span>
+              <button
+                type="button"
+                onClick={() => setSelectedMeds([])}
+                className="text-[#6B7A6F] hover:underline"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
             <p className="text-xs text-[#6B7A6F] italic">
-              Nenhum medicamento com status "em uso" encontrado no seu prontuário.
+              Carregando medicamentos do prontuário...
+            </p>
+          ) : medicamentos.length === 0 ? (
+            <p className="text-xs text-[#6B7A6F] italic bg-[#F6F4EF] p-3 rounded-xl border border-[#D9E2D4]">
+              Nenhum medicamento com status "em uso" encontrado no prontuário deste titular.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {medicamentos.map((m) => {
                 const isSelected = selectedMeds.includes(m.id)
+                const doseFlex = m.dose_prescrita
+                  ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
+                  : m.concentracao || m.dosagem || ''
                 return (
                   <button
                     key={m.id}
@@ -190,13 +403,7 @@ export default function CartaoSaude() {
                   >
                     {isSelected && <Check className="w-3.5 h-3.5" />}
                     <span>{m.nome}</span>
-                    <span className="opacity-80 text-[10px]">
-                      (
-                      {m.dose_prescrita
-                        ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
-                        : m.concentracao || m.dosagem || 'dose padrão'}
-                      )
-                    </span>
+                    {doseFlex && <span className="opacity-80 text-[10px]">({doseFlex})</span>}
                   </button>
                 )
               })}
@@ -204,192 +411,257 @@ export default function CartaoSaude() {
           )}
         </div>
 
-        {/* Alerta de privacidade */}
-        <div className="p-3 rounded-2xl bg-[#F6F4EF] text-xs text-[#6B7A6F] flex items-center gap-2 border border-[#D9E2D4]">
-          <ShieldCheck className="w-4 h-4 text-[#4C7A5A] shrink-0" />
+        {/* Regra médica mantida */}
+        <div className="p-3 rounded-2xl bg-[#E7F0E3]/70 text-xs text-[#26362B] flex items-center gap-2 border border-[#D9E2D4]">
+          <Info className="w-4 h-4 text-[#4C7A5A] shrink-0" />
           <span>
-            <strong>Privacidade preservada:</strong> CPF, RG e endereço residencial completo são
-            omitidos por padrão do cartão impresso para prevenir fraudes em caso de perda.
+            <strong>Diretriz do Cartão SeviSaúde:</strong> horários exatos de tomada são omitidos do
+            cartão físico (mantidos apenas no app) para garantir máxima legibilidade em situações de
+            emergência e evitar sobrecarga de informação.
           </span>
         </div>
       </div>
 
-      {/* ÁREA DE IMPRESSÃO / PRÉVIA DO CARTÃO */}
+      {/* ÁREA DE PRÉVIA DO CARTÃO / IMPRESSÃO */}
       <div ref={printAreaRef} className="space-y-6">
         {!formatoAmpliado ? (
-          /* FORMATO COMPACTO DE CARTÃO (Tamanho aproximado de cartão bancário / carteira frente e verso) */
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-8 py-4">
-            {/* FRENTE DO CARTÃO (85.6mm x 53.98mm aprox ratio) */}
-            <div className="w-full max-w-[420px] min-h-[250px] bg-gradient-to-br from-[#26362B] via-[#2F4435] to-[#1C281F] text-white rounded-3xl p-6 shadow-xl border border-white/20 flex flex-col justify-between relative overflow-hidden">
-              {/* Marca d'água sutil */}
-              <div className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between border-b border-white/15 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#4C7A5A] flex items-center justify-center p-1">
-                      <SeviSaudeIcon size={18} variant="light" />
-                    </div>
-                    <div>
-                      <div className="flex items-baseline gap-0.5 leading-none">
-                        <span className="font-serif italic text-base font-bold tracking-wide text-white">
-                          Sevi
-                        </span>
-                        <span className="font-serif italic text-base font-bold tracking-wide text-[#74C69D]">
-                          Saúde
-                        </span>
-                      </div>
-                      <span className="block text-[8px] uppercase tracking-widest text-[#DCE9D4] mt-0.5">
-                        Cartão de Emergência
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full font-semibold border border-white/10">
-                    Frente
-                  </span>
-                </div>
-
-                {/* Nome do Paciente */}
-                <div className="mt-3">
-                  <span className="text-[9px] uppercase tracking-wider text-white/60 block">
-                    Titular do Prontuário
-                  </span>
-                  <h3 className="font-serif italic text-xl font-bold text-white tracking-wide">
-                    {activeProfile?.nome || user?.name || 'Paciente SeviSaúde'}
-                  </h3>
-                  {(activeProfile?.data_nascimento || user?.meta?.dataNascimento) && (
-                    <span className="text-[10px] text-white/80">
-                      Nasc:{' '}
-                      {formatarData(activeProfile?.data_nascimento || user?.meta?.dataNascimento)}
-                    </span>
-                  )}
-                </div>
-
-                {/* Alergias Conhecidas */}
-                {includeAlergias && (
-                  <div className="mt-3 p-2 rounded-xl bg-red-950/40 border border-red-500/30">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-red-300 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3 text-red-400" />
-                      Alergias e reações adversas:
-                    </span>
-                    <p className="text-[10px] text-red-100 font-medium leading-tight mt-0.5">
-                      {activeProfile?.alergias ||
-                        user?.alergias ||
-                        'Nenhuma alergia conhecida relatada'}
-                    </p>
-                  </div>
-                )}
-
-                {/* Condições Clínicas */}
-                {includeCondicoes && (activeProfile?.condicoes_saude || user?.condicoes_saude) && (
-                  <div className="mt-2 text-[10px] text-white/90">
-                    <span className="text-[9px] font-semibold uppercase tracking-wider text-white/60 block">
-                      Condições de saúde:
-                    </span>
-                    <p className="leading-tight">
-                      {activeProfile?.condicoes_saude || user?.condicoes_saude}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Contato de emergência no rodapé da frente */}
-              {includeEmergencia && (
-                <div className="pt-2 mt-2 border-t border-white/15 flex items-center justify-between text-[10px]">
-                  <div className="flex items-center gap-1.5">
-                    <PhoneCall className="w-3.5 h-3.5 text-[#DCE9D4]" />
-                    <span>
-                      Emergência:{' '}
-                      <strong>
-                        {activeProfile?.contato_emergencia_nome ||
-                          user?.contato_emergencia_nome ||
-                          'A definir'}
-                      </strong>{' '}
-                      {activeProfile?.contato_emergencia_parentesco ||
-                      user?.contato_emergencia_parentesco
-                        ? `(${activeProfile?.contato_emergencia_parentesco || user?.contato_emergencia_parentesco})`
-                        : ''}
-                    </span>
-                  </div>
-                  <strong className="text-[#DCE9D4] font-mono">
-                    {activeProfile?.contato_emergencia_telefone ||
-                      user?.contato_emergencia_telefone ||
-                      '—'}
-                  </strong>
-                </div>
-              )}
+          /* =========================================================================
+             FORMATO FÍSICO DE CARTEIRINHA (96 mm x 65 mm — Proporção exata 96:65)
+             ========================================================================= */
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2 text-xs text-[#6B7A6F] print:hidden">
+              <span className="font-semibold text-[#26362B]">
+                Dimensão real impressa: 96 mm × 65 mm
+              </span>
+              <span>•</span>
+              <span>Proporção 96:65</span>
+              <span>•</span>
+              <span className="bg-[#E7F0E3] text-[#4C7A5A] px-2 py-0.5 rounded-full text-[10px] font-bold">
+                Escala em tela:{' '}
+                {escalaPrevia === 'real'
+                  ? '100% Real'
+                  : escalaPrevia === 'conforto'
+                    ? '115%'
+                    : '130%'}
+              </span>
             </div>
 
-            {/* VERSO DO CARTÃO (Medicamentos em uso detalhados) */}
-            <div className="w-full max-w-[420px] min-h-[250px] bg-[#FDFCFB] text-[#26362B] rounded-3xl p-6 shadow-xl border-2 border-[#D9E2D4] flex flex-col justify-between relative overflow-hidden">
-              <div>
-                <div className="flex items-center justify-between border-b border-[#D9E2D4] pb-2">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#4C7A5A]">
-                    <Activity className="w-3.5 h-3.5" />
-                    <span>Medicamentos em uso contínuo</span>
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider bg-[#E7F0E3] px-2 py-0.5 rounded-full font-bold text-[#26362B]">
-                    Verso
-                  </span>
-                </div>
+            <div className="flex flex-col xl:flex-row items-center justify-center gap-6 py-2">
+              {/* ======================= FRENTE DO CARTÃO (96×65 mm) ======================= */}
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-[11px] font-bold text-[#4C7A5A] uppercase tracking-wider print:hidden">
+                  Frente • 96 × 65 mm
+                </span>
 
-                {/* Lista de medicamentos compacta */}
-                <div className="mt-2.5 space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
-                  {medsToDisplay.length === 0 ? (
-                    <p className="text-[11px] text-[#6B7A6F] italic text-center py-4">
-                      Nenhum medicamento selecionado.
-                    </p>
-                  ) : (
-                    medsToDisplay.map((m) => {
-                      const doseText = m.dose_prescrita
-                        ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
-                        : m.concentracao || m.dosagem || ''
-                      const pLegivel = formatarPeriodicidadeLegivel(
-                        m.periodicidade,
-                        m.dia_referencia,
-                      )
-                      // Periodicidade não diária ao lado/em vez da frequência
-                      const posologiaTexto = [
-                        doseText,
-                        m.via_administracao,
-                        pLegivel ? pLegivel.toLowerCase() : null,
-                        m.frequencia,
-                      ]
-                        .filter(Boolean)
-                        .join(' • ')
+                <div
+                  className={`${widthClasses} transition-all duration-200 bg-[#FDFCFB] text-[#26362B] rounded-2xl p-4 shadow-md border-2 border-[#D9E2D4] flex flex-col justify-between relative overflow-hidden select-none`}
+                  style={{ aspectRatio: '96 / 65' }}
+                >
+                  {/* Faixa decorativa sutil no topo */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-[#4C7A5A]" />
 
-                      return (
-                        <div
-                          key={m.id}
-                          className="text-[10px] p-1.5 rounded-lg bg-[#F6F4EF] border border-[#D9E2D4]/70 flex items-start justify-between gap-1"
-                        >
-                          <div>
-                            <strong className="text-[#26362B] block leading-tight">{m.nome}</strong>
-                            <span className="text-[#4C7A5A] font-medium block">
-                              {posologiaTexto}
+                  {/* 1. Topo: Logo SeviSaúde + Tag do Plano/SUS */}
+                  <div>
+                    <div className="flex items-center justify-between border-b border-[#D9E2D4]/70 pb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-[#4C7A5A] text-white flex items-center justify-center shrink-0">
+                          <SeviSaudeIcon size={16} variant="light" />
+                        </div>
+                        <div className="leading-none">
+                          <div className="flex items-baseline gap-0.5">
+                            <span className="font-serif italic text-sm font-semibold text-[#26362B]">
+                              Sevi
+                            </span>
+                            <span className="font-serif italic text-sm font-bold text-[#4C7A5A]">
+                              Saúde
                             </span>
                           </div>
+                          <span className="text-[7.5px] uppercase tracking-widest text-[#6B7A6F] font-medium block">
+                            Cartão de Saúde
+                          </span>
                         </div>
-                      )
-                    })
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[8.5px] font-bold uppercase tracking-wider bg-[#E7F0E3] text-[#26362B] px-2 py-0.5 rounded-full border border-[#D9E2D4]">
+                          {planoSaudeOuSus.trim() || 'SUS / Particular'}
+                        </span>
+                        <span className="text-[7.5px] font-semibold text-[#6B7A6F] bg-white px-1.5 py-0.5 rounded-md border border-[#D9E2D4]">
+                          Frente
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. Titular do Prontuário + Nascimento + Tipo Sanguíneo */}
+                    <div className="mt-2.5">
+                      <span className="text-[7.5px] uppercase tracking-widest text-[#6B7A6F] font-bold block">
+                        Titular do Prontuário
+                      </span>
+                      <h3 className="font-serif italic text-base md:text-lg font-bold text-[#26362B] tracking-wide leading-tight truncate">
+                        {nomeTitular}
+                      </h3>
+
+                      <div className="flex items-center gap-2 mt-0.5 text-[9px] text-[#6B7A6F]">
+                        <span>
+                          Nasc.:{' '}
+                          <strong className="text-[#26362B]">
+                            {dataNascimento ? formatarData(dataNascimento) : 'Não informada'}
+                          </strong>
+                        </span>
+
+                        {includeTipoSanguineo && tipoSanguineo && (
+                          <span className="inline-flex items-center gap-0.5 bg-[#E7F0E3] text-[#26362B] px-1.5 py-0.2 rounded-md font-bold text-[8.5px] border border-[#D9E2D4]">
+                            <Droplet className="w-2.5 h-2.5 text-red-600 fill-red-600" />
+                            {tipoSanguineo}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 3. Box de Alergias */}
+                    {includeAlergias && (
+                      <div
+                        className={`mt-2 p-1.5 rounded-xl border text-[8.5px] leading-tight ${
+                          alergiasTexto && !alergiasTexto.toLowerCase().includes('nenhum')
+                            ? 'bg-red-50/90 border-red-200 text-red-950'
+                            : 'bg-[#F6F4EF] border-[#D9E2D4] text-[#26362B]'
+                        }`}
+                      >
+                        <span className="font-bold uppercase tracking-wider text-[7.5px] flex items-center gap-1 text-red-800">
+                          <AlertTriangle className="w-2.5 h-2.5 text-red-600 shrink-0" />
+                          Alergias e reações adversas:
+                        </span>
+                        <p className="font-medium mt-0.5 line-clamp-2">
+                          {alergiasTexto.trim() || 'Nenhuma alergia conhecida relatada'}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Condições Clínicas se couber / ativado */}
+                    {includeCondicoes && condicoesTexto && (
+                      <div className="mt-1 text-[8px] text-[#6B7A6F] line-clamp-1">
+                        <strong className="text-[#26362B]">Condições:</strong> {condicoesTexto}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. Rodapé da Frente: Contato de Emergência */}
+                  {includeEmergencia && (
+                    <div className="pt-1.5 border-t border-[#D9E2D4] bg-[#F6F4EF]/70 -mx-4 -mb-4 px-3 py-2 rounded-b-2xl flex items-center justify-between text-[8.5px]">
+                      <div className="flex items-center gap-1 truncate max-w-[65%]">
+                        <PhoneCall className="w-3 h-3 text-[#4C7A5A] shrink-0" />
+                        <span className="truncate">
+                          Emergência:{' '}
+                          <strong className="text-[#26362B]">
+                            {contatoEmergenciaNome || 'A definir'}
+                          </strong>
+                          {contatoEmergenciaParentesco && ` (${contatoEmergenciaParentesco})`}
+                        </span>
+                      </div>
+                      <strong className="text-[#4C7A5A] font-mono text-[9px] shrink-0">
+                        {contatoEmergenciaTelefone || '—'}
+                      </strong>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Rodapé com aviso obrigatório e data de atualização */}
-              <div className="pt-2 border-t border-[#D9E2D4] text-[9px] text-[#6B7A6F] space-y-0.5">
-                <p className="font-semibold text-amber-900 text-[8.5px] italic">
-                  Aviso: confira as informações com as prescrições médicas atuais.
-                </p>
-                <div className="flex items-center justify-between">
-                  <span>Atualizado em: {currentDate}</span>
-                  <span>SeviSaúde Prontuário Pessoal</span>
+              {/* ======================= VERSO DO CARTÃO (96×65 mm) ======================= */}
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-[11px] font-bold text-[#4C7A5A] uppercase tracking-wider print:hidden">
+                  Verso • 96 × 65 mm
+                </span>
+
+                <div
+                  className={`${widthClasses} transition-all duration-200 bg-[#FDFCFB] text-[#26362B] rounded-2xl p-4 shadow-md border-2 border-[#D9E2D4] flex flex-col justify-between relative overflow-hidden select-none`}
+                  style={{ aspectRatio: '96 / 65' }}
+                >
+                  {/* Faixa decorativa sutil no topo */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-[#4C7A5A]" />
+
+                  {/* 1. Cabeçalho do Verso */}
+                  <div>
+                    <div className="flex items-center justify-between border-b border-[#D9E2D4]/70 pb-1.5">
+                      <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-[#4C7A5A]">
+                        <Activity className="w-3 h-3" />
+                        <span>Medicamentos em uso contínuo</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[8px] text-[#6B7A6F] font-medium">
+                          {medsToDisplay.length} item(ns)
+                        </span>
+                        <span className="text-[7.5px] font-semibold text-[#6B7A6F] bg-white px-1.5 py-0.5 rounded-md border border-[#D9E2D4]">
+                          Verso
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. Lista Compacta de Medicamentos (sem horários de tomada) */}
+                    <div className="mt-2 space-y-1 max-h-[145px] overflow-y-auto pr-1">
+                      {medsToDisplay.length === 0 ? (
+                        <p className="text-[10px] text-[#6B7A6F] italic text-center py-6">
+                          Nenhum medicamento com status "em uso" selecionado.
+                        </p>
+                      ) : (
+                        medsToDisplay.slice(0, 6).map((m) => {
+                          const doseFlex = m.dose_prescrita
+                            ? formatarDoseComUnidade(
+                                m.dose_prescrita,
+                                m.unidade_dose || m.forma || '',
+                              )
+                            : m.concentracao || m.dosagem || ''
+                          const pLegivel = formatarPeriodicidadeLegivel(
+                            m.periodicidade,
+                            m.dia_referencia,
+                          )
+                          const posologiaCompacta = [doseFlex, pLegivel, m.frequencia]
+                            .filter(Boolean)
+                            .join(' • ')
+
+                          return (
+                            <div
+                              key={m.id}
+                              className="text-[8.5px] p-1 rounded-lg bg-[#F6F4EF] border border-[#D9E2D4]/60 flex items-center justify-between gap-1 leading-tight"
+                            >
+                              <div className="truncate max-w-[55%]">
+                                <strong className="text-[#26362B] block truncate">{m.nome}</strong>
+                              </div>
+                              <div className="text-right truncate max-w-[45%]">
+                                <span className="text-[#4C7A5A] font-medium block truncate">
+                                  {posologiaCompacta || 'Conforme receita'}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
+
+                      {medsToDisplay.length > 6 && (
+                        <p className="text-[7.5px] text-[#6B7A6F] italic text-center pt-0.5">
+                          + {medsToDisplay.length - 6} outro(s) medicamento(s) no prontuário
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. Rodapé do Verso */}
+                  <div className="pt-1.5 border-t border-[#D9E2D4] text-[7.5px] text-[#6B7A6F] space-y-0.5 leading-tight">
+                    <p className="italic text-amber-950 font-medium">
+                      Confira sempre com as prescrições médicas atuais.
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span>Atualizado em: {currentDate}</span>
+                      <span className="font-semibold text-[#4C7A5A]">sevisaude.com.br</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          /* FORMATO FOLHA AMPLIADA (Para guardar na bolsa, pasta de exames ou fixar na porta da geladeira) */
+          /* =========================================================================
+             FORMATO FOLHA AMPLIADA (Prontuário Pessoal Expandido A4)
+             ========================================================================= */
           <div className="bg-white rounded-3xl p-8 md:p-10 border-2 border-[#D9E2D4] shadow-md max-w-2xl mx-auto space-y-6">
             <div className="flex items-center justify-between border-b-2 border-[#D9E2D4] pb-4">
               <div className="flex items-center gap-3">
@@ -400,7 +672,9 @@ export default function CartaoSaude() {
                   <h2 className="font-serif italic text-2xl font-bold text-[#26362B]">
                     SeviSaúde — Cartão Clínico do Paciente
                   </h2>
-                  <p className="text-xs text-[#6B7A6F]">Prontuário Pessoal e Ficha de Emergência</p>
+                  <p className="text-xs text-[#6B7A6F]">
+                    Prontuário Pessoal e Ficha de Emergência Expandida
+                  </p>
                 </div>
               </div>
               <div className="text-right text-xs text-[#6B7A6F]">
@@ -410,21 +684,34 @@ export default function CartaoSaude() {
             </div>
 
             {/* Dados do Paciente */}
-            <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] text-xs">
               <div>
-                <span className="text-[#6B7A6F] block">Nome do Titular:</span>
-                <strong className="text-sm text-[#26362B]">
-                  {activeProfile?.nome || user?.name || 'Paciente'}
+                <span className="text-[#6B7A6F] block">Titular:</span>
+                <strong className="text-sm text-[#26362B] block">{nomeTitular}</strong>
+                <span className="text-[11px] text-[#6B7A6F]">
+                  Nasc.: {dataNascimento ? formatarData(dataNascimento) : 'Não informada'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#6B7A6F] block">Plano / SUS:</span>
+                <strong className="text-sm text-[#26362B] block">
+                  {planoSaudeOuSus || 'SUS / Particular'}
                 </strong>
+                {tipoSanguineo && (
+                  <span className="text-[11px] text-[#4C7A5A] font-bold">
+                    Sangue: {tipoSanguineo}
+                  </span>
+                )}
               </div>
               <div>
                 <span className="text-[#6B7A6F] block">Contato de Emergência:</span>
-                <strong className="text-sm text-[#26362B]">
-                  {activeProfile?.contato_emergencia_nome || user?.contato_emergencia_nome || '—'}{' '}
-                  {activeProfile?.contato_emergencia_telefone || user?.contato_emergencia_telefone
-                    ? `• ${activeProfile?.contato_emergencia_telefone || user?.contato_emergencia_telefone}`
-                    : ''}
+                <strong className="text-sm text-[#26362B] block">
+                  {contatoEmergenciaNome || '—'}
+                  {contatoEmergenciaParentesco && ` (${contatoEmergenciaParentesco})`}
                 </strong>
+                <span className="text-[11px] text-[#4C7A5A] font-mono">
+                  {contatoEmergenciaTelefone || '—'}
+                </span>
               </div>
             </div>
 
@@ -437,7 +724,7 @@ export default function CartaoSaude() {
                     Alergias e reações adversas
                   </span>
                   <p className="text-red-950 font-medium">
-                    {user?.alergias || 'Nenhuma alergia conhecida declarada.'}
+                    {alergiasTexto || 'Nenhuma alergia conhecida declarada.'}
                   </p>
                 </div>
               )}
@@ -448,7 +735,7 @@ export default function CartaoSaude() {
                     Condições de saúde relevantes
                   </span>
                   <p className="text-[#385942]">
-                    {user?.condicoes_saude || 'Nenhuma condição crônica registrada.'}
+                    {condicoesTexto || 'Nenhuma condição crônica registrada.'}
                   </p>
                 </div>
               )}
@@ -458,7 +745,7 @@ export default function CartaoSaude() {
             <div className="space-y-3">
               <span className="font-bold uppercase tracking-wider text-xs text-[#26362B] flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[#4C7A5A]" />
-                Medicamentos em uso e posologia atual
+                Medicamentos em uso contínuo (Posologia)
               </span>
 
               <div className="border border-[#D9E2D4] rounded-2xl overflow-hidden">
@@ -466,7 +753,7 @@ export default function CartaoSaude() {
                   <thead className="bg-[#F6F4EF] border-b border-[#D9E2D4] text-[#6B7A6F]">
                     <tr>
                       <th className="p-3">Medicamento</th>
-                      <th className="p-3">Dose / Via</th>
+                      <th className="p-3">Dose / Unidade</th>
                       <th className="p-3">Periodicidade / Frequência</th>
                     </tr>
                   </thead>
@@ -476,6 +763,9 @@ export default function CartaoSaude() {
                         m.periodicidade,
                         m.dia_referencia,
                       )
+                      const doseFlex = m.dose_prescrita
+                        ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
+                        : m.concentracao || m.dosagem || '—'
                       const freqCompleta =
                         [pLegivel, m.frequencia].filter(Boolean).join(' • ') || 'Conforme receita'
                       return (
@@ -489,12 +779,7 @@ export default function CartaoSaude() {
                             )}
                           </td>
                           <td className="p-3">
-                            {m.dose_prescrita
-                              ? formatarDoseComUnidade(
-                                  m.dose_prescrita,
-                                  m.unidade_dose || m.forma || '',
-                                )
-                              : m.concentracao || m.dosagem || '—'}
+                            {doseFlex}
                             {m.via_administracao && ` • ${m.via_administracao}`}
                           </td>
                           <td className="p-3">{freqCompleta}</td>
@@ -510,9 +795,7 @@ export default function CartaoSaude() {
             <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold block">
-                  Aviso de Segurança ao Paciente e Profissionais:
-                </span>
+                <span className="font-bold block">Aviso de Segurança ao Paciente:</span>
                 <p>
                   Confira sempre as informações com as prescrições médicas atuais. Em caso de
                   dúvidas, consulte seu médico assistente.
@@ -523,15 +806,25 @@ export default function CartaoSaude() {
         )}
       </div>
 
-      {/* Dica de impressão */}
-      <div className="bg-[#F6F4EF] rounded-3xl p-5 border border-[#D9E2D4] text-xs text-[#6B7A6F] flex items-center justify-between print:hidden">
-        <div className="flex items-center gap-2">
+      {/* Cartão de instruções para impressão física */}
+      <div className="bg-[#F6F4EF] rounded-3xl p-5 border border-[#D9E2D4] text-xs text-[#6B7A6F] space-y-2 print:hidden">
+        <div className="flex items-center gap-2 text-[#26362B] font-semibold">
           <Printer className="w-4 h-4 text-[#4C7A5A]" />
-          <span>
-            Dica: no diálogo de impressão do navegador, selecione <strong>"Salvar como PDF"</strong>{' '}
-            para ter o cartão salvo no celular.
-          </span>
+          <span>Instruções para impressão física precisa em 96 × 65 mm:</span>
         </div>
+        <ul className="list-disc pl-5 space-y-1 text-[11px] text-[#6B7A6F]">
+          <li>
+            <strong>Opção 1 (Recomendada para casa/escritório):</strong> Clique em{' '}
+            <em>"Baixar PDF A4 para Recorte"</em>. Imprima em papel offset 180g ou papel couché com{' '}
+            <strong>Escala 100% (Tamanho Real)</strong>, recorte nas marcas de guia e dobre ao meio
+            antes de plastificar.
+          </li>
+          <li>
+            <strong>Opção 2 (Gráfica / Impressora de Cartão):</strong> Clique em{' '}
+            <em>"PDF Direto (96×65 mm)"</em> para obter arquivo de dimensões milimétricas exatas
+            (página 1 frente, página 2 verso).
+          </li>
+        </ul>
       </div>
     </div>
   )
