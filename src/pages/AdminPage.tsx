@@ -326,14 +326,24 @@ export default function AdminPage() {
           </p>
         </div>
 
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#D9E2D4] hover:bg-[#F6F4EF] text-xs font-semibold text-[#26362B] transition self-start sm:self-auto cursor-pointer"
-        >
-          <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Atualizar dados</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Link
+            to="/marca"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#4C7A5A]/30 bg-[#E7F0E3]/70 hover:bg-[#E7F0E3] text-xs font-semibold text-[#1B4332] transition"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#4C7A5A]" />
+            <span>Ativos da Marca (Logos SVG)</span>
+          </Link>
+
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#D9E2D4] hover:bg-[#F6F4EF] text-xs font-semibold text-[#26362B] transition cursor-pointer"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Atualizar dados</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

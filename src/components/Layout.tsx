@@ -349,13 +349,17 @@ export default function Layout() {
             </NavLink>
             <span className="hidden sm:inline text-[#D9E2D4]">•</span>
             <span className="text-[11px] text-[#6B7A6F]/80">sevisaude.com.br</span>
-            <span className="hidden sm:inline text-[#D9E2D4]">•</span>
-            <NavLink
-              to="/marca"
-              className="text-[#4C7A5A] hover:underline font-medium hover:text-[#1B4332]"
-            >
-              Baixar Logo SVG
-            </NavLink>
+            {isAdmin && (
+              <>
+                <span className="hidden sm:inline text-[#D9E2D4]">•</span>
+                <NavLink
+                  to="/marca"
+                  className="text-[#4C7A5A] hover:underline font-medium hover:text-[#1B4332]"
+                >
+                  Baixar Logo SVG
+                </NavLink>
+              </>
+            )}
           </footer>
         </div>
       </div>

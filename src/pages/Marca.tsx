@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
+import { ADMIN_EMAIL } from '@/services/billingService'
 import {
   Download,
   Copy,
@@ -10,6 +12,7 @@ import {
   Palette,
   ShieldCheck,
   Eye,
+  ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -90,7 +93,34 @@ const BRAND_ASSETS: BrandAsset[] = [
 ]
 
 export default function MarcaPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const isAdmin = (user?.email || '').toLowerCase().trim() === ADMIN_EMAIL
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#F6F4EF] flex flex-col items-center justify-center p-6 text-[#26362B] text-center">
+        <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h1 className="font-serif italic text-2xl sm:text-3xl font-bold tracking-tight text-[#26362B]">
+          Acesso Restrito
+        </h1>
+        <p className="mt-2 text-sm text-[#6B7A6F] max-w-md">
+          Os arquivos e ativos oficiais da marca SeviSaúde são de uso restrito da administração da
+          marca.
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="mt-6 px-6 py-2.5 rounded-full bg-[#4C7A5A] text-white text-xs font-semibold hover:bg-[#3F664C] transition cursor-pointer"
+        >
+          Voltar ao início
+        </button>
+      </div>
+    )
+  }
 
   const handleDownload = (asset: BrandAsset) => {
     // Cria um link temporário para forçar o download com o nome correto do arquivo
