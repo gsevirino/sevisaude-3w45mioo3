@@ -1,6 +1,5 @@
 import { createPdfDocument } from '@/services/exportService'
 import type { HealthProfile, Medicamento } from '@/types/health'
-import { formatarDoseComUnidade, formatarPeriodicidadeLegivel } from '@/lib/medicamentoUtils'
 import { formatarData } from '@/lib/dateUtils'
 
 export interface CartaoDados {
@@ -216,7 +215,9 @@ export function drawCartaoFrente(doc: any, originX: number, originY: number, dad
 
 /**
  * Desenha o Verso do Cartão nas dimensões exatas de 96 mm × 65 mm na posição (originX, originY).
- * Exibe lista compacta de medicamentos com dose pluralizada e frequência amigável (sem horários).
+ * Exibe lista compacta de medicamentos SOMENTE COM O NOME de cada medicamento,
+ * sem dose/concentração, sem quantidade, sem periodicidade e sem horários,
+ * garantindo que toda a lista caiba sem overflow na área útil do verso.
  */
 export function drawCartaoVerso(doc: any, originX: number, originY: number, dados: CartaoDados) {
   const w = 96
@@ -234,88 +235,108 @@ export function drawCartaoVerso(doc: any, originX: number, originY: number, dado
 
   // 1. Cabeçalho do Verso
   const headerY = originY + 6.5
+  const countMeds = dados.medicamentos.length
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7)
   doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
-  doc.text('MEDICAMENTOS EM USO CONTÍNUO', originX + 5, headerY)
+  doc.text(`MEDICAMENTOS EM USO (${countMeds})`, originX + 5, headerY)
 
-  // Contador de medicamentos à direita
-  const countMeds = dados.medicamentos.length
+  // Subtítulo / etiqueta à direita
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(6)
   doc.setTextColor(COR_TEXTO_MUTED[0], COR_TEXTO_MUTED[1], COR_TEXTO_MUTED[2])
-  doc.text(`${countMeds} item(ns)`, originX + w - 5, headerY, { align: 'right' })
+  doc.text('Somente nomes', originX + w - 5, headerY, { align: 'right' })
 
   // Linha separadora
   doc.setDrawColor(COR_BORDA_CARD[0], COR_BORDA_CARD[1], COR_BORDA_CARD[2])
   doc.setLineWidth(0.25)
   doc.line(originX + 5, originY + 8.5, originX + w - 5, originY + 8.5)
 
-  // 2. Lista de Medicamentos em Uso
-  // Espaço disponível: de Y=10 até Y=54 (altura útil ~44 mm)
+  // 2. Lista de Medicamentos em Uso (SOMENTE O NOME)
+  // Área disponível: de listStartY = originY + 10.5 até footerY = originY + 56
+  // Altura útil = ~45 mm. Largura total = 86 mm (margens 5 mm cada lado)
   const listStartY = originY + 10.5
-  const maxDisplay = Math.min(dados.medicamentos.length, 7) // cabem com folga até 7 com fonte legível
+  const footerY = originY + 56
 
   if (countMeds === 0) {
     doc.setFont('helvetica', 'italic')
     doc.setFontSize(6.5)
     doc.setTextColor(COR_TEXTO_MUTED[0], COR_TEXTO_MUTED[1], COR_TEXTO_MUTED[2])
     doc.text('Nenhum medicamento com status "em uso" selecionado.', originX + 5, listStartY + 10)
-  } else {
-    // Altura por item: varia conforme a quantidade para ocupar harmonicamente
-    const itemHeight = countMeds <= 4 ? 9.5 : countMeds <= 6 ? 6.5 : 5.8
+  } else if (countMeds <= 10) {
+    // 1 COLUNA: nomes limpos, quebram linha se longos, zebrado suave para até 10 itens
+    const availH = footerY - listStartY - 1.5
+    // Definir tamanho da fonte e altura por linha
+    const fontSize = countMeds <= 5 ? 7.2 : countMeds <= 8 ? 6.4 : 5.8
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(fontSize)
 
-    dados.medicamentos.slice(0, maxDisplay).forEach((m, idx) => {
+    const maxItemH = availH / countMeds
+    const itemHeight = Math.min(Math.max(maxItemH, 3.8), countMeds <= 4 ? 8.5 : 5.5)
+
+    dados.medicamentos.forEach((m, idx) => {
       const itemY = listStartY + idx * itemHeight
 
       // Fundo zebrado sutil
       if (idx % 2 === 0) {
         doc.setFillColor(COR_FUNDO_SECUNDARIO[0], COR_FUNDO_SECUNDARIO[1], COR_FUNDO_SECUNDARIO[2])
-        doc.roundedRect(originX + 4.5, itemY - 1.2, w - 9, itemHeight - 0.8, 1, 1, 'F')
+        doc.roundedRect(originX + 4.5, itemY - 0.8, w - 9, itemHeight - 0.4, 0.8, 0.8, 'F')
       }
 
       // Marcador verde
       doc.setFillColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
-      doc.circle(originX + 6.5, itemY + 1.2, 0.7, 'F')
+      doc.circle(originX + 6.8, itemY + itemHeight / 2 - 0.3, 0.65, 'F')
+
+      // Nome do medicamento (somente nome, sem dosagem nem horários)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(fontSize)
+      doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
+      // Largura disponível para o texto: w - 16 = 80 mm
+      const lines = doc.splitTextToSize(m.nome.trim(), w - 16)
+      if (lines.length > 1 && itemHeight >= 6) {
+        doc.text(lines[0], originX + 9, itemY + 2.2)
+        doc.setFont('helvetica', 'normal')
+        doc.text(lines[1], originX + 9, itemY + 4.8)
+      } else {
+        doc.text(lines[0] || m.nome, originX + 9, itemY + itemHeight / 2 + 0.8)
+      }
+    })
+  } else {
+    // 2 COLUNAS: para acomodar 11 até 24+ medicamentos com total tranquilidade
+    const colW = (w - 10 - 4) / 2 // (96 - 10 - 4) / 2 = 41 mm
+    const col1X = originX + 5
+    const col2X = originX + 5 + colW + 4
+    const half = Math.ceil(countMeds / 2)
+    const availH = footerY - listStartY - 1
+    const rowH = Math.min(Math.max(availH / half, 3.2), 4.4)
+    const fontSize = countMeds > 18 ? 4.8 : 5.4
+
+    dados.medicamentos.forEach((m, idx) => {
+      const isCol2 = idx >= half
+      const rowIdx = isCol2 ? idx - half : idx
+      const colX = isCol2 ? col2X : col1X
+      const itemY = listStartY + rowIdx * rowH
+
+      // Fundo sutil alternado por linha
+      if (rowIdx % 2 === 0) {
+        doc.setFillColor(COR_FUNDO_SECUNDARIO[0], COR_FUNDO_SECUNDARIO[1], COR_FUNDO_SECUNDARIO[2])
+        doc.roundedRect(colX - 0.5, itemY - 0.5, colW, rowH - 0.3, 0.6, 0.6, 'F')
+      }
+
+      // Marcador
+      doc.setFillColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
+      doc.circle(colX + 1.6, itemY + rowH / 2 - 0.2, 0.5, 'F')
 
       // Nome do medicamento
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(countMeds <= 4 ? 7 : 6.2)
+      doc.setFontSize(fontSize)
       doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
-      const nomeMedTrunc = doc.splitTextToSize(m.nome, 48)[0]
-      doc.text(nomeMedTrunc, originX + 8.5, itemY + 1.6)
-
-      // Dose com flexão correta (pluralização: "7 comprimidos", "1 comprimido", etc.)
-      const doseTexto = m.dose_prescrita
-        ? formatarDoseComUnidade(m.dose_prescrita, m.unidade_dose || m.forma || '')
-        : m.concentracao || m.dosagem || ''
-
-      // Frequência / periodicidade amigável sem horários
-      const pLegivel = formatarPeriodicidadeLegivel(m.periodicidade, m.dia_referencia)
-      const freqTexto = [doseTexto, pLegivel, m.frequencia].filter(Boolean).join(' • ')
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(countMeds <= 4 ? 6 : 5.4)
-      doc.setTextColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
-      const freqTrunc = doc.splitTextToSize(freqTexto || 'Conforme receita', 34)[0]
-      doc.text(freqTrunc, originX + w - 6, itemY + 1.6, { align: 'right' })
+      const lines = doc.splitTextToSize(m.nome.trim(), colW - 4.5)
+      doc.text(lines[0] || m.nome, colX + 3.4, itemY + rowH / 2 + 0.8)
     })
-
-    if (countMeds > maxDisplay) {
-      const extraCount = countMeds - maxDisplay
-      doc.setFont('helvetica', 'italic')
-      doc.setFontSize(5)
-      doc.setTextColor(COR_TEXTO_MUTED[0], COR_TEXTO_MUTED[1], COR_TEXTO_MUTED[2])
-      doc.text(
-        `+ ${extraCount} outro(s) medicamento(s) no prontuário`,
-        originX + 8.5,
-        originY + 53.5,
-      )
-    }
   }
 
   // 3. Rodapé do Verso
-  const footerY = originY + 56
   doc.setDrawColor(COR_BORDA_CARD[0], COR_BORDA_CARD[1], COR_BORDA_CARD[2])
   doc.setLineWidth(0.25)
   doc.line(originX + 5, footerY, originX + w - 5, footerY)

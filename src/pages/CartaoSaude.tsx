@@ -168,8 +168,8 @@ export default function CartaoSaude() {
           <p className="text-[#6B7A6F] text-xs md:text-sm mt-1 max-w-2xl">
             Carteirinha física frente e verso padronizada em <strong>96 mm × 65 mm</strong> (formato
             carteirinha/plastificado), contendo identificação, alergias, contato de emergência e
-            medicamentos em uso contínuo sem horários.
-          </p>
+            lista compacta com o nome dos medicamentos em uso no verso.
+          </p>{' '}
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -415,9 +415,9 @@ export default function CartaoSaude() {
         <div className="p-3 rounded-2xl bg-[#E7F0E3]/70 text-xs text-[#26362B] flex items-center gap-2 border border-[#D9E2D4]">
           <Info className="w-4 h-4 text-[#4C7A5A] shrink-0" />
           <span>
-            <strong>Diretriz do Cartão SeviSaúde:</strong> horários exatos de tomada são omitidos do
-            cartão físico (mantidos apenas no app) para garantir máxima legibilidade em situações de
-            emergência e evitar sobrecarga de informação.
+            <strong>Diretriz do Verso do Cartão:</strong> exibe apenas o{' '}
+            <strong>nome de cada medicamento</strong> (sem dose, sem quantidade e sem horários) para
+            que toda a lista caiba com máxima legibilidade no formato físico 96 × 65 mm.
           </span>
         </div>
       </div>
@@ -582,68 +582,57 @@ export default function CartaoSaude() {
                   {/* 1. Cabeçalho do Verso */}
                   <div>
                     <div className="flex items-center justify-between border-b border-[#D9E2D4]/70 pb-1.5">
-                      <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-[#4C7A5A]">
-                        <Activity className="w-3 h-3" />
-                        <span>Medicamentos em uso contínuo</span>
+                      <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-[#26362B]">
+                        <Activity className="w-3 h-3 text-[#4C7A5A]" />
+                        <span>Medicamentos em uso ({medsToDisplay.length})</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[8px] text-[#6B7A6F] font-medium">
-                          {medsToDisplay.length} item(ns)
-                        </span>
+                        <span className="text-[7.5px] text-[#6B7A6F]">Somente nomes</span>
                         <span className="text-[7.5px] font-semibold text-[#6B7A6F] bg-white px-1.5 py-0.5 rounded-md border border-[#D9E2D4]">
                           Verso
                         </span>
                       </div>
                     </div>
 
-                    {/* 2. Lista Compacta de Medicamentos (sem horários de tomada) */}
-                    <div className="mt-2 space-y-1 max-h-[145px] overflow-y-auto pr-1">
+                    {/* 2. Lista Compacta de Medicamentos (SOMENTE O NOME - sem doses, sem horários) */}
+                    <div className="mt-1.5">
                       {medsToDisplay.length === 0 ? (
                         <p className="text-[10px] text-[#6B7A6F] italic text-center py-6">
                           Nenhum medicamento com status "em uso" selecionado.
                         </p>
-                      ) : (
-                        medsToDisplay.slice(0, 6).map((m) => {
-                          const doseFlex = m.dose_prescrita
-                            ? formatarDoseComUnidade(
-                                m.dose_prescrita,
-                                m.unidade_dose || m.forma || '',
-                              )
-                            : m.concentracao || m.dosagem || ''
-                          const pLegivel = formatarPeriodicidadeLegivel(
-                            m.periodicidade,
-                            m.dia_referencia,
-                          )
-                          const posologiaCompacta = [doseFlex, pLegivel, m.frequencia]
-                            .filter(Boolean)
-                            .join(' • ')
-
-                          return (
+                      ) : medsToDisplay.length <= 10 ? (
+                        /* Layout 1 coluna para até 10 medicamentos */
+                        <div className="space-y-0.5 max-h-[148px] overflow-y-auto pr-0.5">
+                          {medsToDisplay.map((m, idx) => (
                             <div
                               key={m.id}
-                              className="text-[8.5px] p-1 rounded-lg bg-[#F6F4EF] border border-[#D9E2D4]/60 flex items-center justify-between gap-1 leading-tight"
+                              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[9px] font-semibold text-[#26362B] leading-tight break-words ${
+                                idx % 2 === 0 ? 'bg-[#F6F4EF]' : 'bg-transparent'
+                              }`}
                             >
-                              <div className="truncate max-w-[55%]">
-                                <strong className="text-[#26362B] block truncate">{m.nome}</strong>
-                              </div>
-                              <div className="text-right truncate max-w-[45%]">
-                                <span className="text-[#4C7A5A] font-medium block truncate">
-                                  {posologiaCompacta || 'Conforme receita'}
-                                </span>
-                              </div>
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#4C7A5A] shrink-0" />
+                              <span className="break-words line-clamp-2">{m.nome}</span>
                             </div>
-                          )
-                        })
-                      )}
-
-                      {medsToDisplay.length > 6 && (
-                        <p className="text-[7.5px] text-[#6B7A6F] italic text-center pt-0.5">
-                          + {medsToDisplay.length - 6} outro(s) medicamento(s) no prontuário
-                        </p>
+                          ))}
+                        </div>
+                      ) : (
+                        /* Layout 2 colunas para mais de 10 medicamentos (garante que todos caibam) */
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 max-h-[148px] overflow-y-auto pr-0.5">
+                          {medsToDisplay.map((m, idx) => (
+                            <div
+                              key={m.id}
+                              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-semibold text-[#26362B] leading-tight break-words ${
+                                Math.floor(idx / 2) % 2 === 0 ? 'bg-[#F6F4EF]' : 'bg-transparent'
+                              }`}
+                            >
+                              <span className="w-1 h-1 rounded-full bg-[#4C7A5A] shrink-0" />
+                              <span className="break-words line-clamp-2 truncate">{m.nome}</span>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
-
                   {/* 3. Rodapé do Verso */}
                   <div className="pt-1.5 border-t border-[#D9E2D4] text-[7.5px] text-[#6B7A6F] space-y-0.5 leading-tight">
                     <p className="italic text-amber-950 font-medium">
