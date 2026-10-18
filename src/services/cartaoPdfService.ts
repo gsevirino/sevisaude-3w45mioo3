@@ -135,14 +135,16 @@ export function drawCartaoFrente(doc: any, originX: number, originY: number, dad
     doc.text(`SANGUE: ${dados.tipoSanguineo.trim()}`, tsX + 2, curY)
   }
 
-  // 3. Box de Alergias e Condições
-  curY += 2.5
+  // 3. Box de Alergias
+  curY += 2
   const alergiasTexto = dados.alergias?.trim() || 'Nenhuma alergia conhecida relatada'
   const temAlergiaCadastrada = Boolean(
     dados.alergias?.trim() && !dados.alergias.toLowerCase().includes('nenhum'),
   )
 
-  const boxAlergiaH = 10
+  const temCondicoes = Boolean(dados.condicoesSaude?.trim())
+  // Se houver condições a renderizar abaixo, mantém a caixa de alergias mais compacta
+  const boxAlergiaH = temCondicoes ? 8.5 : 9.5
   if (temAlergiaCadastrada) {
     doc.setFillColor(COR_ALERTA_BG[0], COR_ALERTA_BG[1], COR_ALERTA_BG[2])
     doc.setDrawColor(COR_ALERTA_BORDA[0], COR_ALERTA_BORDA[1], COR_ALERTA_BORDA[2])
@@ -154,30 +156,81 @@ export function drawCartaoFrente(doc: any, originX: number, originY: number, dad
   doc.roundedRect(originX + 5, curY, w - 10, boxAlergiaH, 1.5, 1.5, 'FD')
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(5.5)
+  doc.setFontSize(5.2)
   if (temAlergiaCadastrada) {
     doc.setTextColor(COR_ALERTA_TEXTO[0], COR_ALERTA_TEXTO[1], COR_ALERTA_TEXTO[2])
-    doc.text('! ALERGIAS E REAÇÕES ADVERSAS:', originX + 7, curY + 3.2)
+    doc.text('! ALERGIAS E REAÇÕES ADVERSAS:', originX + 7, curY + 2.8)
   } else {
     doc.setTextColor(COR_TEXTO_MUTED[0], COR_TEXTO_MUTED[1], COR_TEXTO_MUTED[2])
-    doc.text('ALERGIAS A MEDICAMENTOS:', originX + 7, curY + 3.2)
+    doc.text('ALERGIAS A MEDICAMENTOS:', originX + 7, curY + 2.8)
   }
 
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(6)
+  doc.setFontSize(5.8)
   if (temAlergiaCadastrada) {
     doc.setTextColor(COR_ALERTA_TEXTO[0], COR_ALERTA_TEXTO[1], COR_ALERTA_TEXTO[2])
   } else {
     doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
   }
   const alergiasLinhas = doc.splitTextToSize(alergiasTexto, w - 14)
-  doc.text(alergiasLinhas[0] || 'Nenhuma', originX + 7, curY + 6.8)
-  if (alergiasLinhas[1]) {
-    doc.text(alergiasLinhas[1], originX + 7, curY + 9.2)
+  doc.text(alergiasLinhas[0] || 'Nenhuma', originX + 7, curY + 6.0)
+  if (alergiasLinhas[1] && boxAlergiaH >= 9.5) {
+    doc.text(alergiasLinhas[1], originX + 7, curY + 8.4)
   }
 
-  // 4. Rodapé da Frente: Contato de Emergência
-  const footerY = originY + 52
+  curY += boxAlergiaH + 1.2
+
+  // 4. Bloco de Condições de Saúde na ÍNTEGRA (sem corte nem truncamento)
+  const footerY = originY + 53.5
+  if (temCondicoes) {
+    const condicoesStr = dados.condicoesSaude!.trim()
+    const prefixo = 'Condições: '
+    const maxWidth = w - 10 // 86 mm
+
+    // Ajuste dinâmico de tamanho de fonte para acomodar lista longa sem sobrepor o rodapé
+    let condFontSize = 5.6
+    let condLineLeading = 2.4
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(condFontSize)
+    let fullLines = doc.splitTextToSize(`${prefixo}${condicoesStr}`, maxWidth)
+    let maxLinesAllowed = Math.floor((footerY - curY - 0.5) / condLineLeading)
+
+    if (fullLines.length > maxLinesAllowed) {
+      condFontSize = 5.0
+      condLineLeading = 2.1
+      doc.setFontSize(condFontSize)
+      fullLines = doc.splitTextToSize(`${prefixo}${condicoesStr}`, maxWidth)
+      maxLinesAllowed = Math.floor((footerY - curY - 0.5) / condLineLeading)
+    }
+
+    if (fullLines.length > maxLinesAllowed) {
+      condFontSize = 4.5
+      condLineLeading = 1.9
+      doc.setFontSize(condFontSize)
+      fullLines = doc.splitTextToSize(`${prefixo}${condicoesStr}`, maxWidth)
+    }
+
+    // Renderizar todas as linhas com prefixo "Condições:" em negrito
+    fullLines.forEach((line: string, idx: number) => {
+      const lineY = curY + idx * condLineLeading + 2
+      if (idx === 0) {
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
+        doc.text(prefixo, originX + 5, lineY)
+        const prefixWidth = doc.getTextWidth(prefixo)
+        const resto = line.slice(prefixo.length)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(COR_TEXTO_MUTED[0], COR_TEXTO_MUTED[1], COR_TEXTO_MUTED[2])
+        doc.text(resto, originX + 5 + prefixWidth, lineY)
+      } else {
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(COR_TEXTO_MUTED[0], COR_TEXTO_MUTED[1], COR_TEXTO_MUTED[2])
+        doc.text(line, originX + 5, lineY)
+      }
+    })
+  }
+
+  // 5. Rodapé da Frente: Contato de Emergência
   doc.setFillColor(COR_FUNDO_SECUNDARIO[0], COR_FUNDO_SECUNDARIO[1], COR_FUNDO_SECUNDARIO[2])
   doc.setDrawColor(COR_BORDA_CARD[0], COR_BORDA_CARD[1], COR_BORDA_CARD[2])
   doc.setLineWidth(0.25)

@@ -537,9 +537,9 @@ export default function CartaoSaude() {
                       </div>
                     )}
 
-                    {/* Condições Clínicas se couber / ativado */}
+                    {/* Condições Clínicas na íntegra (sem truncamento/line-clamp) */}
                     {includeCondicoes && condicoesTexto && (
-                      <div className="mt-1 text-[8px] text-[#6B7A6F] line-clamp-1">
+                      <div className="mt-1 text-[7.5px] sm:text-[8px] text-[#6B7A6F] leading-tight break-words">
                         <strong className="text-[#26362B]">Condições:</strong> {condicoesTexto}
                       </div>
                     )}
@@ -547,7 +547,7 @@ export default function CartaoSaude() {
 
                   {/* 4. Rodapé da Frente: Contato de Emergência */}
                   {includeEmergencia && (
-                    <div className="pt-1.5 border-t border-[#D9E2D4] bg-[#F6F4EF]/70 -mx-4 -mb-4 px-3 py-2 rounded-b-2xl flex items-center justify-between text-[8.5px]">
+                    <div className="pt-1.5 border-t border-[#D9E2D4] bg-[#F6F4EF]/70 -mx-4 -mb-4 px-3 py-1.5 sm:py-2 rounded-b-2xl flex items-center justify-between text-[8.5px] shrink-0">
                       <div className="flex items-center gap-1 truncate max-w-[65%]">
                         <PhoneCall className="w-3 h-3 text-[#4C7A5A] shrink-0" />
                         <span className="truncate">
@@ -723,7 +723,7 @@ export default function CartaoSaude() {
                   <span className="font-bold uppercase tracking-wider text-[#26362B] block mb-1">
                     Condições de saúde relevantes
                   </span>
-                  <p className="text-[#385942]">
+                  <p className="text-[#385942] break-words whitespace-normal">
                     {condicoesTexto || 'Nenhuma condição crônica registrada.'}
                   </p>
                 </div>
