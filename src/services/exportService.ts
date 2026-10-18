@@ -1,9 +1,94 @@
-import jsPDF from 'jspdf'
+import * as jsPDFModule from 'jspdf'
 import * as autoTableModule from 'jspdf-autotable'
 
-// Interop ESM/CJS resiliente para jspdf-autotable em bundlers como Vite/Rollup
-const autoTable: any =
-  (autoTableModule as any).default ?? (autoTableModule as any).autoTable ?? autoTableModule
+// Interop ESM/CJS resiliente para jsPDF e jspdf-autotable em bundlers como Vite/Rollup
+function resolveJsPDFConstructor(): any {
+  const mod = jsPDFModule as any
+  if (typeof mod === 'function') return mod
+  if (typeof mod.default === 'function') return mod.default
+  if (typeof mod.jsPDF === 'function') return mod.jsPDF
+  if (mod.default && typeof mod.default.jsPDF === 'function') return mod.default.jsPDF
+  return mod
+}
+
+function resolveAutoTableFn(): ((doc: any, options: any) => any) | null {
+  const mod = autoTableModule as any
+  if (typeof mod === 'function') return mod
+  if (typeof mod.default === 'function') return mod.default
+  if (typeof mod.autoTable === 'function') return mod.autoTable
+  if (mod.default && typeof mod.default.autoTable === 'function') return mod.default.autoTable
+  if (mod.default && typeof mod.default.default === 'function') return mod.default.default
+  return null
+}
+
+function resolveApplyPluginFn(): ((jsPdfClass: any) => void) | null {
+  const mod = autoTableModule as any
+  if (typeof mod.applyPlugin === 'function') return mod.applyPlugin
+  if (mod.default && typeof mod.default.applyPlugin === 'function') return mod.default.applyPlugin
+  return null
+}
+
+export function createPdfDocument(options?: any): any {
+  const JsPdfClass = resolveJsPDFConstructor()
+  const doc = new JsPdfClass(options)
+
+  // Assegura que o plugin autoTable está anexado ao protótipo da instância se applyPlugin existir
+  try {
+    const apply = resolveApplyPluginFn()
+    if (apply && typeof apply === 'function') {
+      apply(JsPdfClass)
+    }
+  } catch {
+    // Silencioso se já estiver aplicado ou não suportado
+  }
+
+  return doc
+}
+
+/**
+ * Invoca autoTable com múltiplos fallbacks de resolução resiliente (função autônoma ou método da instância doc.autoTable).
+ */
+export function callAutoTable(doc: any, options: any): any {
+  // 1. Tentar função resolvida do módulo
+  const fn = resolveAutoTableFn()
+  if (typeof fn === 'function') {
+    try {
+      return fn(doc, options)
+    } catch (err) {
+      console.warn('Fallback: chamada direta de autoTable falhou, tentando doc.autoTable:', err)
+    }
+  }
+
+  // 2. Tentar método da instância se applyPlugin decorou o protótipo
+  if (typeof doc?.autoTable === 'function') {
+    return doc.autoTable(options)
+  }
+
+  // 3. Tentar aplicar plugin dinamicamente caso ainda não esteja aplicado
+  const apply = resolveApplyPluginFn()
+  if (typeof apply === 'function') {
+    try {
+      apply(resolveJsPDFConstructor())
+      if (typeof doc?.autoTable === 'function') {
+        return doc.autoTable(options)
+      }
+    } catch (applyErr) {
+      console.warn('Tentativa de applyPlugin falhou:', applyErr)
+    }
+  }
+
+  throw new Error('Não foi possível inicializar o plugin de geração de tabelas do PDF.')
+}
+
+/**
+ * Retorna com segurança a coordenada final Y da última tabela renderizada.
+ */
+export function getLastAutoTableFinalY(doc: any, fallbackY: number): number {
+  if (doc?.lastAutoTable?.finalY !== undefined && doc.lastAutoTable.finalY !== null) {
+    return Number(doc.lastAutoTable.finalY)
+  }
+  return fallbackY
+}
 
 import {
   formatarData,
@@ -75,7 +160,7 @@ export function getDataArquivo(): string {
  * Desenha o cabeçalho oficial do SeviSaúde em cada página de PDF
  */
 function drawHeader(
-  doc: jsPDF,
+  doc: any,
   profile: HealthProfile,
   tituloDocumento: string,
   dataGeracaoStr: string,
@@ -146,7 +231,7 @@ function drawHeader(
 /**
  * Desenha o rodapé obrigatório em todas as páginas com numeração
  */
-function applyFooters(doc: jsPDF) {
+function applyFooters(doc: any) {
   const totalPages = (doc.internal.pages.length - 1) as number
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
@@ -182,7 +267,7 @@ function applyFooters(doc: jsPDF) {
 // 1. PDF: RESUMO GERAL DE SAÚDE (OVERVIEW COMPLETO)
 // ============================================================================
 export function exportarResumoGeralPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -202,7 +287,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
     ? ` (${data.profile.contato_emergencia_parentesco})`
     : ''
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: startY,
     head: [['Alergias e Reações', 'Condições Crônicas', 'Contato de Emergência']],
     body: [
@@ -228,8 +313,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
     margin: { left: 14, right: 14 },
   })
 
-  // @ts-expect-error autoTable adds lastAutoTable to doc
-  startY = (doc.lastAutoTable.finalY as number) + 6
+  startY = getLastAutoTableFinalY(doc, startY + 20) + 6
 
   // Seção 2: Medicamentos em Uso
   doc.setFont('helvetica', 'bold')
@@ -258,7 +342,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
         })
       : [['Nenhum medicamento com status "em uso" cadastrado.', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: startY,
     head: [
       [
@@ -289,8 +373,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
     margin: { left: 14, right: 14 },
   })
 
-  // @ts-expect-error autoTable adds lastAutoTable to doc
-  startY = (doc.lastAutoTable.finalY as number) + 6
+  startY = getLastAutoTableFinalY(doc, startY + 30) + 6
 
   // Seção 3: Próximas Consultas Agendadas
   if (startY > 230) {
@@ -324,7 +407,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
         })
       : [['Nenhuma consulta agendada encontrada.', '', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: startY,
     head: [['Data', 'Horário', 'Profissional', 'Especialidade', 'Tipo', 'Local', 'Autorização']],
     body: consultRows,
@@ -346,8 +429,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
     margin: { left: 14, right: 14 },
   })
 
-  // @ts-expect-error autoTable adds lastAutoTable to doc
-  startY = (doc.lastAutoTable.finalY as number) + 6
+  startY = getLastAutoTableFinalY(doc, startY + 25) + 6
 
   // Seção 4: Exames Pendentes ou Agendados
   if (startY > 230) {
@@ -383,7 +465,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
         })
       : [['Nenhum exame pendente ou agendado no momento.', '', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: startY,
     head: [['Exame', 'Tipo', 'Status', 'Solicitado em', 'Agendamento', 'Local', 'Autorização']],
     body: examesRows,
@@ -415,7 +497,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
 // 2. PDF: LISTA ATUAL DE MEDICAMENTOS (RECEITUÁRIO / PRONTUÁRIO)
 // ============================================================================
 export function exportarMedicamentosPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
 
@@ -457,7 +539,7 @@ export function exportarMedicamentosPDF(data: ExportDataPayload): void {
         })
       : [['Nenhum medicamento registrado.', '', '', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: 56,
     head: [
       [
@@ -510,7 +592,7 @@ export function exportarMedicamentosPDF(data: ExportDataPayload): void {
 // 3. PDF: HISTÓRICO COMPLETO DE ALTERAÇÕES DE MEDICAMENTOS (TRILHA IMUTÁVEL)
 // ============================================================================
 export function exportarHistoricoMedicamentosPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
 
@@ -545,7 +627,7 @@ export function exportarHistoricoMedicamentosPDF(data: ExportDataPayload): void 
         })
       : [['Nenhuma alteração registrada no histórico.', '', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: 56,
     head: [
       [
@@ -591,12 +673,11 @@ export function exportarHistoricoMedicamentosPDF(data: ExportDataPayload): void 
   const filename = `sevisaude-historico-medicamentos-${sanitizeFilename(data.profile.nome)}-${getDataArquivo()}.pdf`
   doc.save(filename)
 }
-
 // ============================================================================
 // 4. PDF: CONSULTAS E REGISTRO PÓS-CONSULTA ESTRUTURADO
 // ============================================================================
 export function exportarConsultasPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
 
@@ -606,7 +687,7 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
   let startY = 56
 
   if (consultas.length === 0) {
-    autoTable(doc, {
+    callAutoTable(doc, {
       startY: startY,
       head: [['Status']],
       body: [['Nenhuma consulta registrada para este titular.']],
@@ -632,7 +713,7 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
       ]
     })
 
-    autoTable(doc, {
+    callAutoTable(doc, {
       startY: startY,
       head: [
         [
@@ -674,8 +755,7 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
       margin: { left: 14, right: 14 },
     })
 
-    // @ts-expect-error autoTable adds lastAutoTable to doc
-    startY = (doc.lastAutoTable.finalY as number) + 8
+    startY = getLastAutoTableFinalY(doc, startY + 40) + 8
 
     // Detalhamento dos Registros Pós-Consulta estruturados
     const comRegistroPos = consultas.filter(
@@ -725,7 +805,7 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
         return [cabecalho, detalhes]
       })
 
-      autoTable(doc, {
+      callAutoTable(doc, {
         startY: startY,
         head: [['Consulta', 'Resumo Estruturado / Conduta / Orientações']],
         body: posRows,
@@ -760,7 +840,7 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
 // 5. PDF: EXAMES E STATUS (5 ESTADOS DO PROMPT MESTRE)
 // ============================================================================
 export function exportarExamesPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
 
@@ -802,7 +882,7 @@ export function exportarExamesPDF(data: ExportDataPayload): void {
         })
       : [['Nenhum exame cadastrado.', '', '', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: 56,
     head: [
       [
@@ -855,7 +935,7 @@ export function exportarExamesPDF(data: ExportDataPayload): void {
 // 6. PDF: MÉDICOS E PROFISSIONAIS
 // ============================================================================
 export function exportarMedicosPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
 
@@ -874,7 +954,7 @@ export function exportarMedicosPDF(data: ExportDataPayload): void {
         ])
       : [['Nenhum profissional cadastrado para este titular.', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: 56,
     head: [['Nome', 'Especialidade', 'Registro (CRM/CRN)', 'Telefone', 'E-mail', 'Observações']],
     body: rows,
@@ -914,7 +994,7 @@ export function exportarMedicosPDF(data: ExportDataPayload): void {
 // 7. PDF: DOCUMENTOS DE SAÚDE (LISTA E METADADOS)
 // ============================================================================
 export function exportarDocumentosPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
 
@@ -932,7 +1012,7 @@ export function exportarDocumentosPDF(data: ExportDataPayload): void {
         ])
       : [['Nenhum documento arquivado para este titular.', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY: 56,
     head: [['Título do Documento', 'Categoria', 'Exame Relacionado', 'Data de Upload', 'Anexo']],
     body: rows,
@@ -971,7 +1051,7 @@ export function exportarDocumentosPDF(data: ExportDataPayload): void {
 // 8. PDF: EXPORTAÇÃO COMPLETA (DOSSIÊ INTEGRAL DE SAÚDE)
 // ============================================================================
 export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = createPdfDocument({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date()
   const dataGeracao = formatarDataHora(now)
 
@@ -987,7 +1067,7 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
   const emergNome = data.profile.contato_emergencia_nome || 'Não cadastrado'
   const emergTel = data.profile.contato_emergencia_telefone || '—'
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY,
     head: [['Alergias e Reações', 'Condições Crônicas', 'Contato de Emergência']],
     body: [[alergiasTexto, condicoesTexto, `${emergNome}\nTelefone: ${emergTel}`]],
@@ -1001,8 +1081,7 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
     bodyStyles: { fontSize: 7.5, cellPadding: 2.5 },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error autoTable adds lastAutoTable to doc
-  startY = (doc.lastAutoTable.finalY as number) + 6
+  startY = getLastAutoTableFinalY(doc, startY + 20) + 6
 
   // 2. Medicamentos
   doc.setFont('helvetica', 'bold')
@@ -1031,7 +1110,7 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
         ])
       : [['Nenhum medicamento registrado.', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY,
     head: [['Medicamento', 'Dose', 'Status', 'Frequência', 'Horários', 'Médico']],
     body: medsRows,
@@ -1040,8 +1119,7 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
     bodyStyles: { fontSize: 7, cellPadding: 2 },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error autoTable adds lastAutoTable to doc
-  startY = (doc.lastAutoTable.finalY as number) + 6
+  startY = getLastAutoTableFinalY(doc, startY + 25) + 6
 
   // 3. Consultas
   if (startY > 230) {
@@ -1075,7 +1153,7 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
         })
       : [['Nenhuma consulta registrada.', '', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY,
     head: [
       ['Data', 'Horário', 'Status', 'Profissional', 'Tipo', 'Autorização', 'Motivo / Anotação'],
@@ -1086,8 +1164,7 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
     bodyStyles: { fontSize: 7, cellPadding: 2 },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error autoTable adds lastAutoTable to doc
-  startY = (doc.lastAutoTable.finalY as number) + 6
+  startY = getLastAutoTableFinalY(doc, startY + 25) + 6
 
   // 4. Exames
   if (startY > 230) {
@@ -1121,7 +1198,7 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
         })
       : [['Nenhum exame registrado.', '', '', '', '', '', '']]
 
-  autoTable(doc, {
+  callAutoTable(doc, {
     startY,
     head: [['Exame', 'Tipo', 'Status', 'Solicitado', 'Realizado', 'Local', 'Autorização']],
     body: examesRows,

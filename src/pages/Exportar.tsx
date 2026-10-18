@@ -205,9 +205,20 @@ export default function Exportar() {
       })
     } catch (err: any) {
       console.error('Erro ao exportar:', err)
+      const isTechnicalError =
+        typeof err?.message === 'string' &&
+        (err.message.includes('is not a function') ||
+          err.message.includes('Cannot read property') ||
+          err.message.includes('Cannot read properties') ||
+          err.message.includes('undefined is not an object'))
+
+      const userMessage = isTechnicalError
+        ? 'Não foi possível gerar o PDF. Tente novamente.'
+        : err?.message || 'Não foi possível gerar o PDF. Tente novamente.'
+
       toast({
         title: 'Falha na exportação',
-        description: err?.message || 'Ocorreu um erro ao gerar o arquivo.',
+        description: userMessage,
         variant: 'destructive',
       })
     } finally {
