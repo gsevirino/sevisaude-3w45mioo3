@@ -80,22 +80,66 @@ export function drawCartaoFrente(doc: any, originX: number, originY: number, dad
   const headerY = originY + 5.5
   drawSeviSaudeLogo(doc, originX + 5, headerY, 6)
 
-  // Tag do cabeçalho à direita: Plano / SUS ou "CARTÃO DE SAÚDE" (+ Carteirinha se informada)
-  const cartStr = dados.numeroCarteirinha?.trim() ? ` • Nº ${dados.numeroCarteirinha.trim()}` : ''
-  const planoText = `${dados.planoSaudeOuSus?.trim() || 'SUS / Particular'}${cartStr}`
+  // Tag do cabeçalho à direita: Plano / SUS e Carteirinha (se informada)
+  // Permite 1 ou 2 linhas para que o número longo NUNCA seja truncado ou cortado
+  const planoNome = dados.planoSaudeOuSus?.trim() || 'SUS / Particular'
+  const temCarteirinha = Boolean(dados.numeroCarteirinha?.trim())
+  const numCartStr = temCarteirinha ? `Nº ${dados.numeroCarteirinha!.trim()}` : ''
+
+  const maxBadgeW = 56 // espaço disponível entre logo e margem direita
   doc.setFont('helvetica', 'bold')
-  // Ajustar tamanho se tiver carteirinha longa para caber na tag
-  const fontSizePlano = planoText.length > 25 ? 5.2 : planoText.length > 18 ? 5.8 : 6.5
-  doc.setFontSize(fontSizePlano)
-  const planoW = Math.min(doc.getTextWidth(planoText) + 4, 48)
-  const badgeX = originX + w - 5 - planoW
-  doc.setFillColor(COR_VERDE_CLARO[0], COR_VERDE_CLARO[1], COR_VERDE_CLARO[2])
-  doc.setDrawColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
-  doc.setLineWidth(0.2)
-  doc.roundedRect(badgeX, headerY - 0.5, planoW, 4.5, 1.2, 1.2, 'FD')
-  doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
-  const planoTrunc = doc.splitTextToSize(planoText, planoW - 2)[0]
-  doc.text(planoTrunc, badgeX + 2, headerY + 2.7)
+
+  // Testa se cabe em linha única (plano • Nº carteirinha)
+  const linhaUnicaTexto = temCarteirinha ? `${planoNome} • ${numCartStr}` : planoNome
+  const singleFontSize = linhaUnicaTexto.length > 32 ? 4.6 : linhaUnicaTexto.length > 22 ? 5.2 : 6.0
+  doc.setFontSize(singleFontSize)
+  const singleW = doc.getTextWidth(linhaUnicaTexto) + 4
+
+  const usaDuasLinhas = temCarteirinha && (singleW > maxBadgeW || linhaUnicaTexto.length > 26)
+
+  if (!usaDuasLinhas) {
+    // RENDERIZAÇÃO EM 1 LINHA
+    const badgeW = Math.min(singleW, maxBadgeW)
+    const badgeX = originX + w - 5 - badgeW
+    doc.setFillColor(COR_VERDE_CLARO[0], COR_VERDE_CLARO[1], COR_VERDE_CLARO[2])
+    doc.setDrawColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
+    doc.setLineWidth(0.2)
+    doc.roundedRect(badgeX, headerY - 0.5, badgeW, 4.5, 1.2, 1.2, 'FD')
+
+    doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
+    doc.text(linhaUnicaTexto, badgeX + badgeW / 2, headerY + 2.7, { align: 'center' })
+  } else {
+    // RENDERIZAÇÃO EM 2 LINHAS (Plano na linha 1, Carteirinha na linha 2) para exibir tudo na íntegra
+    const l1Size = planoNome.length > 20 ? 4.8 : 5.4
+    const l2Size = numCartStr.length > 28 ? 4.2 : numCartStr.length > 22 ? 4.8 : 5.2
+
+    doc.setFontSize(l1Size)
+    const w1 = doc.getTextWidth(planoNome)
+    doc.setFontSize(l2Size)
+    const w2 = doc.getTextWidth(numCartStr)
+
+    const badgeW = Math.min(Math.max(w1, w2) + 5, maxBadgeW)
+    const badgeX = originX + w - 5 - badgeW
+    const badgeH = 6.2
+    const badgeY = headerY - 0.8
+
+    doc.setFillColor(COR_VERDE_CLARO[0], COR_VERDE_CLARO[1], COR_VERDE_CLARO[2])
+    doc.setDrawColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
+    doc.setLineWidth(0.2)
+    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1.2, 1.2, 'FD')
+
+    // Linha 1: Nome do Plano
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(l1Size)
+    doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
+    doc.text(planoNome, badgeX + badgeW / 2, badgeY + 2.5, { align: 'center' })
+
+    // Linha 2: Carteirinha completa
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(l2Size)
+    doc.setTextColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
+    doc.text(numCartStr, badgeX + badgeW / 2, badgeY + 5.1, { align: 'center' })
+  }
 
   // Linha sutil separando cabeçalho
   doc.setDrawColor(COR_BORDA_CARD[0], COR_BORDA_CARD[1], COR_BORDA_CARD[2])

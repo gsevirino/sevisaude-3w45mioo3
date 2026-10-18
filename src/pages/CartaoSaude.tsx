@@ -509,16 +509,16 @@ export default function CartaoSaude() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[8.5px] font-bold uppercase tracking-wider bg-[#E7F0E3] text-[#26362B] px-2 py-0.5 rounded-full border border-[#D9E2D4] max-w-[150px] truncate">
-                          {planoSaudeOuSus.trim() || 'SUS / Particular'}
+                      <div className="flex items-center gap-1.5 min-w-0 max-w-[65%] justify-end">
+                        <span className="text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wider bg-[#E7F0E3] text-[#26362B] px-2 py-0.5 rounded-xl border border-[#D9E2D4] text-right leading-tight max-w-full">
+                          <span>{planoSaudeOuSus.trim() || 'SUS / Particular'}</span>
                           {numeroCarteirinha && (
-                            <span className="ml-1 text-[7.5px] text-[#4C7A5A] font-mono">
-                              • Nº {numeroCarteirinha}
+                            <span className="block sm:inline sm:ml-1 text-[7.5px] text-[#4C7A5A] font-mono font-medium normal-case break-all">
+                              <span className="hidden sm:inline">• </span>Nº {numeroCarteirinha}
                             </span>
                           )}
                         </span>
-                        <span className="text-[7.5px] font-semibold text-[#6B7A6F] bg-white px-1.5 py-0.5 rounded-md border border-[#D9E2D4]">
+                        <span className="text-[7.5px] font-semibold text-[#6B7A6F] bg-white px-1.5 py-0.5 rounded-md border border-[#D9E2D4] shrink-0 self-center">
                           Frente
                         </span>
                       </div>
@@ -715,16 +715,16 @@ export default function CartaoSaude() {
               </div>
               <div>
                 <span className="text-[#6B7A6F] block">Plano / SUS:</span>
-                <strong className="text-sm text-[#26362B] block">
+                <strong className="text-sm text-[#26362B] block break-words">
                   {planoSaudeOuSus || 'SUS / Particular'}
                   {numeroCarteirinha && (
-                    <span className="block text-xs font-mono font-normal text-[#4C7A5A]">
+                    <span className="block text-xs font-mono font-normal text-[#4C7A5A] break-all">
                       Carteirinha: {numeroCarteirinha}
                     </span>
                   )}
                 </strong>
                 {tipoSanguineo && (
-                  <span className="text-[11px] text-[#4C7A5A] font-bold">
+                  <span className="text-[11px] text-[#4C7A5A] font-bold block mt-0.5">
                     Sangue: {tipoSanguineo}
                   </span>
                 )}
