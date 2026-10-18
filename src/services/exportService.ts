@@ -131,6 +131,8 @@ export interface ExportDataPayload {
   geradoPorNome?: string
   alergias?: string
   condicoesSaude?: string
+  planoSaude?: string
+  numeroCarteirinha?: string
 }
 
 /**
@@ -217,15 +219,24 @@ function drawHeader(
   const parentesco = profile.parentesco ? ` (${profile.parentesco})` : ''
   doc.text(`${titularNome}${parentesco}`, 18, 47)
 
-  // Metadados do titular à direita
+  // Metadados do titular à direita (Nascimento, Tipo Sanguíneo e Plano de Saúde)
   const dataNasc = profile.data_nascimento ? formatarData(profile.data_nascimento) : 'Não informada'
   const tipoSang = profile.tipo_sanguineo || '—'
+  const planoSaude = profile.plano_saude ? `Plano: ${profile.plano_saude}` : ''
+  const carteirinha = profile.numero_carteirinha ? `Nº ${profile.numero_carteirinha}` : ''
+  const planoCompleto = [planoSaude, carteirinha].filter(Boolean).join(' • ')
+
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
+  doc.setFontSize(7.5)
   doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2])
-  doc.text(`Nascimento: ${dataNasc}   |   Tipo Sanguíneo: ${tipoSang}`, pageWidth - 18, 45, {
+  doc.text(`Nasc.: ${dataNasc}  |  Sangue: ${tipoSang}`, pageWidth - 18, 43, {
     align: 'right',
   })
+  if (planoCompleto) {
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(BRAND_DARK[0], BRAND_DARK[1], BRAND_DARK[2])
+    doc.text(planoCompleto, pageWidth - 18, 48, { align: 'right' })
+  }
 }
 
 /**
@@ -276,7 +287,7 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
 
   let startY = 56
 
-  // Box 1: Alergias e Condições Clínicas
+  // Box 1: Alergias, Condições Clínicas e Plano de Saúde / Emergência
   const alergiasTexto =
     data.alergias || data.profile.alergias || 'Nenhuma alergia conhecida a medicamentos.'
   const condicoesTexto =
@@ -287,11 +298,25 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
     ? ` (${data.profile.contato_emergencia_parentesco})`
     : ''
 
+  const planoInfo =
+    data.planoSaude || data.profile.plano_saude
+      ? `${data.planoSaude || data.profile.plano_saude}${
+          data.numeroCarteirinha || data.profile.numero_carteirinha
+            ? `\nCarteirinha: ${data.numeroCarteirinha || data.profile.numero_carteirinha}`
+            : ''
+        }`
+      : 'SUS / Particular'
+
   callAutoTable(doc, {
     startY: startY,
-    head: [['Alergias e Reações', 'Condições Crônicas', 'Contato de Emergência']],
+    head: [['Alergias e Reações', 'Condições Crônicas', 'Plano de Saúde', 'Contato de Emergência']],
     body: [
-      [alergiasTexto, condicoesTexto, `${emergNome}${emergParentesco}\nTelefone: ${emergTel}`],
+      [
+        alergiasTexto,
+        condicoesTexto,
+        planoInfo,
+        `${emergNome}${emergParentesco}\nTelefone: ${emergTel}`,
+      ],
     ],
     theme: 'grid',
     headStyles: {
@@ -301,14 +326,15 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
       fontSize: 8,
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: 7.5,
       textColor: TEXT_MAIN,
       cellPadding: 3,
     },
     columnStyles: {
-      0: { cellWidth: 60 },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 62 },
+      0: { cellWidth: 46 },
+      1: { cellWidth: 46 },
+      2: { cellWidth: 44 },
+      3: { cellWidth: 46 },
     },
     margin: { left: 14, right: 14 },
   })
@@ -1066,11 +1092,19 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
     data.condicoesSaude || data.profile.condicoes_saude || 'Nenhuma condição crônica registrada.'
   const emergNome = data.profile.contato_emergencia_nome || 'Não cadastrado'
   const emergTel = data.profile.contato_emergencia_telefone || '—'
+  const planoInfo =
+    data.planoSaude || data.profile.plano_saude
+      ? `${data.planoSaude || data.profile.plano_saude}${
+          data.numeroCarteirinha || data.profile.numero_carteirinha
+            ? `\nCarteirinha: ${data.numeroCarteirinha || data.profile.numero_carteirinha}`
+            : ''
+        }`
+      : 'SUS / Particular'
 
   callAutoTable(doc, {
     startY,
-    head: [['Alergias e Reações', 'Condições Crônicas', 'Contato de Emergência']],
-    body: [[alergiasTexto, condicoesTexto, `${emergNome}\nTelefone: ${emergTel}`]],
+    head: [['Alergias e Reações', 'Condições Crônicas', 'Plano de Saúde', 'Contato de Emergência']],
+    body: [[alergiasTexto, condicoesTexto, planoInfo, `${emergNome}\nTelefone: ${emergTel}`]],
     theme: 'grid',
     headStyles: {
       fillColor: BRAND_DARK,
@@ -1242,6 +1276,9 @@ function escapeCsvCell(val: any): string {
 
 export function exportarMedicamentosCSV(data: ExportDataPayload): void {
   const header = [
+    'Titular',
+    'Plano de Saúde',
+    'Número da Carteirinha',
     'Nome',
     'Princípio Ativo',
     'Dose Prescrita',
@@ -1274,6 +1311,9 @@ export function exportarMedicamentosCSV(data: ExportDataPayload): void {
       formatarPeriodicidadeLegivel(m.periodicidade, m.dia_referencia) || m.periodicidade || ''
     lines.push(
       [
+        data.profile.nome || '',
+        data.planoSaude || data.profile.plano_saude || '',
+        data.numeroCarteirinha || data.profile.numero_carteirinha || '',
         m.nome,
         m.principio_ativo || '',
         m.dose_prescrita || '',
@@ -1342,6 +1382,9 @@ export function exportarHistoricoMedicamentosCSV(data: ExportDataPayload): void 
 
 export function exportarConsultasCSV(data: ExportDataPayload): void {
   const header = [
+    'Titular',
+    'Plano de Saúde',
+    'Número da Carteirinha',
     'Data',
     'Horário',
     'Status',
@@ -1367,6 +1410,9 @@ export function exportarConsultasCSV(data: ExportDataPayload): void {
   ;(data.consultas || []).forEach((c) => {
     lines.push(
       [
+        data.profile.nome || '',
+        data.planoSaude || data.profile.plano_saude || '',
+        data.numeroCarteirinha || data.profile.numero_carteirinha || '',
         formatarData(c.data),
         formatarHora(c.horario),
         c.status,
@@ -1398,6 +1444,9 @@ export function exportarConsultasCSV(data: ExportDataPayload): void {
 
 export function exportarExamesCSV(data: ExportDataPayload): void {
   const header = [
+    'Titular',
+    'Plano de Saúde',
+    'Número da Carteirinha',
     'Nome do Exame',
     'Tipo',
     'Status',
@@ -1417,6 +1466,9 @@ export function exportarExamesCSV(data: ExportDataPayload): void {
   ;(data.exames || []).forEach((e) => {
     lines.push(
       [
+        data.profile.nome || '',
+        data.planoSaude || data.profile.plano_saude || '',
+        data.numeroCarteirinha || data.profile.numero_carteirinha || '',
         e.nome,
         e.tipo,
         e.status,

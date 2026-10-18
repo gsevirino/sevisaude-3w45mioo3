@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T22:20:28.546Z",
+  "generatedAt": "2026-10-18T22:30:00.971Z",
   "collections": [
     {
       "name": "users",
@@ -71,6 +71,18 @@
         {
           "name": "meta",
           "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "plano_saude",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_carteirinha",
+          "type": "text",
           "required": false,
           "system": false
         }
@@ -913,7 +925,7 @@
         "list": "@request.auth.id != '' && (user = @request.auth.id || @collection.profile_access_grants.profile ?= id && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "view": "@request.auth.id != '' && (user = @request.auth.id || @collection.profile_access_grants.profile ?= id && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "update": "@request.auth.id != '' && (user = @request.auth.id || @collection.profile_access_grants.profile ?= id && @collection.profile_access_grants.grantee_email = @request.auth.email && @collection.profile_access_grants.status = 'accepted')",
         "delete": "@request.auth.id != '' && user = @request.auth.id"
       },
       "fields": [
@@ -1003,6 +1015,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "plano_saude",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_carteirinha",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

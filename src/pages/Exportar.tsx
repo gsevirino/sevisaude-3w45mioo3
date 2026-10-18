@@ -167,6 +167,14 @@ export default function Exportar() {
       alergias: activeProfile?.alergias || (activeProfile?.is_proprio ? user?.alergias : ''),
       condicoesSaude:
         activeProfile?.condicoes_saude || (activeProfile?.is_proprio ? user?.condicoes_saude : ''),
+      planoSaude:
+        activeProfile?.plano_saude ||
+        (activeProfile?.is_proprio ? user?.plano_saude || user?.meta?.planoSaude : ''),
+      numeroCarteirinha:
+        activeProfile?.numero_carteirinha ||
+        (activeProfile?.is_proprio
+          ? user?.numero_carteirinha || user?.meta?.numeroCarteirinha
+          : ''),
     }
   }
 

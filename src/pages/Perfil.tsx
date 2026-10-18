@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useHealthProfile } from '@/context/HealthProfileContext'
+import { useSubscription } from '@/context/SubscriptionContext'
 import { useSearchParams, Link } from 'react-router-dom'
 import TitularesManager from '@/components/TitularesManager'
 import { MeuPlanoTab } from '@/components/MeuPlanoTab'
+import ProfileContextBadge from '@/components/ProfileContextBadge'
 import pb from '@/lib/pocketbase/client'
 import {
   getUserNotificationPreferences,
@@ -12,7 +14,7 @@ import {
   triggerProcessReminders,
 } from '@/services/notificationService'
 import type { NotificationPreferences, NotificationJob, PlanoKey } from '@/types/health'
-import { formatarDataHora } from '@/lib/dateUtils'
+import { formatarDataHora, extrairDataIso } from '@/lib/dateUtils'
 import {
   User as UserIcon,
   Shield,
@@ -38,7 +40,8 @@ import { toast } from '@/hooks/use-toast'
 
 export default function Perfil() {
   const { user } = useAuth()
-  const { activeProfile, profiles, refreshProfiles } = useHealthProfile()
+  const { activeProfile, profiles, refreshProfiles, isOwner, activeGrant } = useHealthProfile()
+  const { isReadOnly, isExpired } = useSubscription()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const initialTab =
@@ -54,12 +57,25 @@ export default function Perfil() {
       : 'perfil',
   )
 
+  // O titular editado na ficha de dados é o titular ativo selecionado no seletor do topo
+  const targetProfile =
+    activeProfile || profiles.find((p) => user && p.user === user.id && p.is_proprio) || null
+  const isEditingOwnUser =
+    isOwner && (targetProfile?.is_proprio || targetProfile?.user === user?.id)
+
+  // Verificação de permissão de edição para familiares
+  // Donos podem editar (se a conta não estiver expirada / somente leitura)
+  // Convidado/familiar precisa de permissão ativa ou status accepted
+  const canEdit = !isReadOnly && (isOwner || (activeGrant && activeGrant.status === 'accepted'))
+
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
   const [dataNascimento, setDataNascimento] = useState('')
+  const [planoSaude, setPlanoSaude] = useState('')
+  const [numeroCarteirinha, setNumeroCarteirinha] = useState('')
 
-  // Novos campos do prontuário do prompt mestre
+  // Informações Clínicas e Emergência
   const [alergias, setAlergias] = useState('')
   const [condicoesSaude, setCondicoesSaude] = useState('')
   const [contatoEmergenciaNome, setContatoEmergenciaNome] = useState('')
@@ -91,55 +107,84 @@ export default function Perfil() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingSecurity, setSavingSecurity] = useState(false)
 
-  // Localizar perfil titular próprio
-  const ownProfile =
-    profiles.find((p) => user && p.user === user.id && p.is_proprio) || activeProfile
-
   useEffect(() => {
     if (user) {
-      setName(user.name || ownProfile?.nome || '')
+      // Priorizar os dados do titular ativo selecionado no topo
+      const currentName = targetProfile?.nome || user.name || ''
+      setName(currentName)
       setEmail(user.email || '')
       setTelefone(user.meta?.telefone || '')
-      setDataNascimento(ownProfile?.data_nascimento || user.meta?.dataNascimento || '')
-      setAlergias(ownProfile?.alergias || user.alergias || '')
-      setCondicoesSaude(ownProfile?.condicoes_saude || user.condicoes_saude || '')
+
+      // BUG FIX: extrair a data pura no formato YYYY-MM-DD para o date input,
+      // eliminando timestamps do PocketBase como "1959-03-16 00:00:00.000Z"
+      const rawDataNasc =
+        targetProfile?.data_nascimento ||
+        (targetProfile?.is_proprio ? user.meta?.dataNascimento : '') ||
+        ''
+      setDataNascimento(extrairDataIso(rawDataNasc))
+
+      setPlanoSaude(
+        targetProfile?.plano_saude ||
+          (targetProfile?.is_proprio ? user.plano_saude || user.meta?.planoSaude : '') ||
+          '',
+      )
+      setNumeroCarteirinha(
+        targetProfile?.numero_carteirinha ||
+          (targetProfile?.is_proprio
+            ? user.numero_carteirinha || user.meta?.numeroCarteirinha
+            : '') ||
+          '',
+      )
+
+      setAlergias(targetProfile?.alergias || (targetProfile?.is_proprio ? user.alergias : '') || '')
+      setCondicoesSaude(
+        targetProfile?.condicoes_saude ||
+          (targetProfile?.is_proprio ? user.condicoes_saude : '') ||
+          '',
+      )
       setContatoEmergenciaNome(
-        ownProfile?.contato_emergencia_nome ||
-          user.contato_emergencia_nome ||
-          user.meta?.contatoEmergenciaNome ||
+        targetProfile?.contato_emergencia_nome ||
+          (targetProfile?.is_proprio
+            ? user.contato_emergencia_nome || user.meta?.contatoEmergenciaNome
+            : '') ||
           '',
       )
       setContatoEmergenciaTelefone(
-        ownProfile?.contato_emergencia_telefone ||
-          user.contato_emergencia_telefone ||
-          user.meta?.contatoEmergenciaTelefone ||
+        targetProfile?.contato_emergencia_telefone ||
+          (targetProfile?.is_proprio
+            ? user.contato_emergencia_telefone || user.meta?.contatoEmergenciaTelefone
+            : '') ||
           '',
       )
       setContatoEmergenciaParentesco(
-        ownProfile?.contato_emergencia_parentesco ||
-          user.contato_emergencia_parentesco ||
-          user.meta?.contatoEmergenciaParentesco ||
+        targetProfile?.contato_emergencia_parentesco ||
+          (targetProfile?.is_proprio
+            ? user.contato_emergencia_parentesco || user.meta?.contatoEmergenciaParentesco
+            : '') ||
           '',
       )
+
       setLembreteMedicamentos(user.meta?.lembreteMedicamentos ?? true)
       setLembreteConsultas(user.meta?.lembreteConsultas ?? true)
       setLembreteExames(user.meta?.lembreteExames ?? true)
 
       // Carregar preferências de lembretes backend
-      getUserNotificationPreferences().then((prefs) => {
-        if (prefs) {
-          setNotifPrefs(prefs)
-          setNotifEnabled(prefs.enabled)
-          setNotifAppointments(prefs.appointments_enabled)
-          setNotifExams(prefs.exams_enabled)
-          setDaysAdvance(prefs.days_advance || 2)
-          setNotifyDayBefore(prefs.notify_day_before)
-          setNotifySameDay(prefs.notify_same_day)
-          setFamilyOptIn(prefs.family_opt_in)
-        }
-      })
+      getUserNotificationPreferences()
+        .then((prefs) => {
+          if (prefs) {
+            setNotifPrefs(prefs)
+            setNotifEnabled(prefs.enabled)
+            setNotifAppointments(prefs.appointments_enabled)
+            setNotifExams(prefs.exams_enabled)
+            setDaysAdvance(prefs.days_advance || 2)
+            setNotifyDayBefore(prefs.notify_day_before)
+            setNotifySameDay(prefs.notify_same_day)
+            setFamilyOptIn(prefs.family_opt_in)
+          }
+        })
+        .catch((e) => console.warn('Erro ao carregar preferências de lembretes:', e))
     }
-  }, [user, ownProfile])
+  }, [user, targetProfile?.id])
 
   const loadJobsHistory = async () => {
     setLoadingJobs(true)
@@ -160,57 +205,78 @@ export default function Perfil() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
+
+    if (!canEdit) {
+      toast({
+        title: 'Edição bloqueada',
+        description: isReadOnly
+          ? 'Sua assinatura está expirada. Renove seu plano para editar dados.'
+          : 'Você não tem permissão para editar os dados deste titular.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setSavingProfile(true)
     try {
-      const updatedMeta = {
-        ...(user.meta || {}),
-        telefone,
-        dataNascimento,
-        contatoEmergenciaNome,
-        contatoEmergenciaTelefone,
-        contatoEmergenciaParentesco,
-        lembreteMedicamentos,
-        lembreteConsultas,
-        lembreteExames,
+      // Normalizar data_nascimento para ISO 'YYYY-MM-DD'
+      const dataIso = dataNascimento ? extrairDataIso(dataNascimento) : ''
+
+      // 1. Atualizar o titular ativo na coleção health_profiles
+      if (targetProfile) {
+        await pb.collection('health_profiles').update(targetProfile.id, {
+          nome: name.trim() || targetProfile.nome,
+          data_nascimento: dataIso,
+          plano_saude: planoSaude.trim(),
+          numero_carteirinha: numeroCarteirinha.trim(),
+          alergias,
+          condicoes_saude: condicoesSaude,
+          contato_emergencia_nome: contatoEmergenciaNome,
+          contato_emergencia_telefone: contatoEmergenciaTelefone,
+          contato_emergencia_parentesco: contatoEmergenciaParentesco,
+        })
       }
 
-      // 1. Atualizar registro do usuário em users
-      await pb.collection('users').update(user.id, {
-        name,
-        alergias,
-        condicoes_saude: condicoesSaude,
-        contato_emergencia_nome: contatoEmergenciaNome,
-        contato_emergencia_telefone: contatoEmergenciaTelefone,
-        contato_emergencia_parentesco: contatoEmergenciaParentesco,
-        meta: updatedMeta,
-      })
-
-      // 2. Sincronizar com o perfil de titular próprio em health_profiles
-      if (ownProfile) {
-        try {
-          await pb.collection('health_profiles').update(ownProfile.id, {
-            nome: name.trim() || ownProfile.nome,
-            data_nascimento: dataNascimento,
-            alergias,
-            condicoes_saude: condicoesSaude,
-            contato_emergencia_nome: contatoEmergenciaNome,
-            contato_emergencia_telefone: contatoEmergenciaTelefone,
-            contato_emergencia_parentesco: contatoEmergenciaParentesco,
-          })
-        } catch (hpErr) {
-          console.warn('Erro ao sincronizar health_profile titular:', hpErr)
+      // 2. Se for o titular próprio da conta (is_proprio ou id do usuário logado),
+      // sincronizar também no registro do usuário em users para manter authStore e metadados íntegros
+      if (isEditingOwnUser || !targetProfile || targetProfile.is_proprio) {
+        const updatedMeta = {
+          ...(user.meta || {}),
+          telefone,
+          dataNascimento: dataIso,
+          planoSaude: planoSaude.trim(),
+          numeroCarteirinha: numeroCarteirinha.trim(),
+          contatoEmergenciaNome,
+          contatoEmergenciaTelefone,
+          contatoEmergenciaParentesco,
+          lembreteMedicamentos,
+          lembreteConsultas,
+          lembreteExames,
         }
+
+        await pb.collection('users').update(user.id, {
+          name: name.trim() || user.name,
+          plano_saude: planoSaude.trim(),
+          numero_carteirinha: numeroCarteirinha.trim(),
+          alergias,
+          condicoes_saude: condicoesSaude,
+          contato_emergencia_nome: contatoEmergenciaNome,
+          contato_emergencia_telefone: contatoEmergenciaTelefone,
+          contato_emergencia_parentesco: contatoEmergenciaParentesco,
+          meta: updatedMeta,
+        })
+
+        await pb.collection('users').authRefresh()
       }
 
-      // Refresh auth store model e lista de perfis
-      await pb.collection('users').authRefresh()
       await refreshProfiles()
 
       toast({
-        title: 'Perfil atualizado!',
-        description: 'Seus dados de saúde, emergência e preferências foram salvos.',
+        title: 'Perfil salvo com sucesso!',
+        description: `Os dados de "${targetProfile?.nome || name}" foram atualizados.`,
       })
     } catch (err: any) {
+      console.error('Erro ao atualizar perfil:', err)
       toast({
         title: 'Erro ao atualizar perfil',
         description: err?.message || 'Tente novamente.',
@@ -357,17 +423,64 @@ export default function Perfil() {
           onSubmit={handleSaveProfile}
           className="bg-white rounded-3xl p-6 md:p-8 border border-[#D9E2D4] shadow-sm space-y-6"
         >
-          <div className="flex items-center gap-3 pb-4 border-b border-[#D9E2D4]">
-            <div className="w-10 h-10 rounded-2xl bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center">
-              <UserIcon className="w-5 h-5" />
+          {/* Banner de Bloqueio por Assinatura Expirada ou Falta de Permissão */}
+          {isReadOnly && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold block">Assinatura Expirada — Modo Somente Leitura</span>
+                <p>
+                  Sua conta está em modo somente leitura. Para salvar alterações cadastrais ou
+                  adicionar novos dados clínicos, renove sua assinatura no menu{' '}
+                  <strong>Meu Plano</strong>.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-serif italic text-xl text-[#26362B] font-semibold">
-                Identificação do Titular
-              </h2>
-              <p className="text-xs text-[#6B7A6F]">
-                Sem CPF ou endereço completo expostos por padrão para segurança
-              </p>
+          )}
+
+          {!canEdit && !isReadOnly && (
+            <div className="p-4 rounded-2xl bg-[#F6F4EF] border border-[#D9E2D4] text-xs text-[#26362B] flex items-start gap-3">
+              <Shield className="w-5 h-5 text-[#4C7A5A] shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">Ficha em Modo de Visualização</span>
+                <p className="text-[#6B7A6F]">
+                  Você possui permissão de leitura sobre a ficha do titular{' '}
+                  <strong>{targetProfile?.nome || 'selecionado'}</strong>. Para editar, solicite
+                  permissão ao titular principal.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#D9E2D4]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#DCE9D4] text-[#4C7A5A] flex items-center justify-center">
+                <UserIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-serif italic text-xl text-[#26362B] font-semibold">
+                    Identificação de {targetProfile?.nome || 'Titular'}
+                  </h2>
+                  {targetProfile?.is_proprio ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#E7F0E3] text-[#4C7A5A] px-2 py-0.5 rounded-full border border-[#D9E2D4]">
+                      Titular Principal
+                    </span>
+                  ) : targetProfile?.parentesco ? (
+                    <span className="text-[10px] font-semibold bg-[#F6F4EF] text-[#6B7A6F] px-2 py-0.5 rounded-full border border-[#D9E2D4]">
+                      {targetProfile.parentesco}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-xs text-[#6B7A6F]">
+                  Ficha vinculada ao titular ativo do seletor superior. Sem CPF exposto por
+                  segurança.
+                </p>
+              </div>
+            </div>
+
+            <div className="shrink-0">
+              <ProfileContextBadge />
             </div>
           </div>
 
@@ -378,9 +491,10 @@ export default function Perfil() {
               </label>
               <input
                 type="text"
+                disabled={!canEdit}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -404,10 +518,11 @@ export default function Perfil() {
               </label>
               <input
                 type="text"
+                disabled={!canEdit}
                 value={telefone}
                 onChange={(e) => setTelefone(e.target.value)}
                 placeholder="(11) 98765-4321"
-                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -417,10 +532,48 @@ export default function Perfil() {
               </label>
               <input
                 type="date"
+                disabled={!canEdit}
                 value={dataNascimento}
                 onChange={(e) => setDataNascimento(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] disabled:opacity-60 disabled:cursor-not-allowed"
               />
+            </div>
+          </div>
+
+          {/* Novos campos opcionais: Plano de Saúde e Carteirinha */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+                Plano de saúde (opcional)
+              </label>
+              <input
+                type="text"
+                disabled={!canEdit}
+                value={planoSaude}
+                onChange={(e) => setPlanoSaude(e.target.value)}
+                placeholder="Ex.: Unimed, SUS, Bradesco Saúde, SulAmérica"
+                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              <span className="text-[10px] text-[#6B7A6F] mt-1 block">
+                Preenche automaticamente a tag do seu Cartão de Saúde
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#26362B] mb-1 uppercase tracking-wider">
+                Número da carteirinha (opcional)
+              </label>
+              <input
+                type="text"
+                disabled={!canEdit}
+                value={numeroCarteirinha}
+                onChange={(e) => setNumeroCarteirinha(e.target.value)}
+                placeholder="Ex.: 0 123 456789012 00 1"
+                className="w-full px-4 py-2.5 rounded-2xl border border-[#D9E2D4] bg-[#FDFCFB] text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              <span className="text-[10px] text-[#6B7A6F] mt-1 block">
+                Consta no Cartão de Saúde e nos relatórios para postos e clínicas
+              </span>
             </div>
           </div>
 
@@ -440,10 +593,11 @@ export default function Perfil() {
               </label>
               <textarea
                 rows={2}
+                disabled={!canEdit}
                 value={alergias}
                 onChange={(e) => setAlergias(e.target.value)}
                 placeholder="Ex.: Penicilina e derivados (urticária e choque anafilático leve), Dipirona..."
-                className="w-full px-4 py-2 rounded-2xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                className="w-full px-4 py-2 rounded-2xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -453,10 +607,11 @@ export default function Perfil() {
               </label>
               <textarea
                 rows={2}
+                disabled={!canEdit}
                 value={condicoesSaude}
                 onChange={(e) => setCondicoesSaude(e.target.value)}
                 placeholder="Ex.: Hipertensão Arterial Sistêmica, Diabetes Tipo 2, Asma crônica..."
-                className="w-full px-4 py-2 rounded-2xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                className="w-full px-4 py-2 rounded-2xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A] disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -477,10 +632,11 @@ export default function Perfil() {
                 </label>
                 <input
                   type="text"
+                  disabled={!canEdit}
                   value={contatoEmergenciaNome}
                   onChange={(e) => setContatoEmergenciaNome(e.target.value)}
                   placeholder="Ex.: Carlos Eduardo"
-                  className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -490,10 +646,11 @@ export default function Perfil() {
                 </label>
                 <input
                   type="text"
+                  disabled={!canEdit}
                   value={contatoEmergenciaParentesco}
                   onChange={(e) => setContatoEmergenciaParentesco(e.target.value)}
                   placeholder="Ex.: Cônjuge, Filho(a), Irmão"
-                  className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -503,10 +660,11 @@ export default function Perfil() {
                 </label>
                 <input
                   type="text"
+                  disabled={!canEdit}
                   value={contatoEmergenciaTelefone}
                   onChange={(e) => setContatoEmergenciaTelefone(e.target.value)}
                   placeholder="Ex.: (11) 98111-2233"
-                  className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -557,11 +715,17 @@ export default function Perfil() {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              disabled={savingProfile}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold shadow-md transition disabled:opacity-50 cursor-pointer"
+              disabled={savingProfile || !canEdit}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#4C7A5A] hover:bg-[#3F664C] text-white text-xs font-semibold shadow-md transition disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              <span>{savingProfile ? 'Salvando...' : 'Salvar dados do prontuário'}</span>
+              <span>
+                {savingProfile
+                  ? 'Salvando...'
+                  : !canEdit
+                    ? 'Edição Bloqueada'
+                    : 'Salvar dados do prontuário'}
+              </span>
             </button>
           </div>
         </form>

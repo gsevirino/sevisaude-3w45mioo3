@@ -78,12 +78,19 @@ export default function CartaoSaude() {
 
   // Inicializar planoSaudeOuSus a partir do perfil se houver informações em observacoes ou meta
   useEffect(() => {
-    if (activeProfile?.observacoes?.toLowerCase().includes('sus')) {
+    // Prioriza o valor do plano cadastrado no perfil/titular
+    const planoPerfil =
+      activeProfile?.plano_saude ||
+      (activeProfile?.is_proprio ? user?.plano_saude || user?.meta?.planoSaude : '') ||
+      ''
+    if (planoPerfil) {
+      setPlanoSaudeOuSus(planoPerfil)
+    } else if (activeProfile?.observacoes?.toLowerCase().includes('sus')) {
       setPlanoSaudeOuSus('SUS')
     } else if (activeProfile?.observacoes?.toLowerCase().includes('unimed')) {
       setPlanoSaudeOuSus('Unimed')
     }
-  }, [activeProfile])
+  }, [activeProfile, user])
 
   const toggleMed = (id: string) => {
     setSelectedMeds((prev) =>
@@ -101,16 +108,35 @@ export default function CartaoSaude() {
 
   // Dados consolidados do titular selecionado no seletor de topo
   const nomeTitular = activeProfile?.nome || user?.name || 'Paciente SeviSaúde'
-  const dataNascimento = activeProfile?.data_nascimento || user?.meta?.dataNascimento
+  const dataNascimento =
+    activeProfile?.data_nascimento || (activeProfile?.is_proprio ? user?.meta?.dataNascimento : '')
   const tipoSanguineo = (activeProfile?.tipo_sanguineo || '').trim()
-  const alergiasTexto = activeProfile?.alergias || user?.alergias || ''
-  const condicoesTexto = activeProfile?.condicoes_saude || user?.condicoes_saude || ''
+  const alergiasTexto =
+    activeProfile?.alergias || (activeProfile?.is_proprio ? user?.alergias : '') || ''
+  const condicoesTexto =
+    activeProfile?.condicoes_saude || (activeProfile?.is_proprio ? user?.condicoes_saude : '') || ''
   const contatoEmergenciaNome =
-    activeProfile?.contato_emergencia_nome || user?.contato_emergencia_nome || ''
+    activeProfile?.contato_emergencia_nome ||
+    (activeProfile?.is_proprio
+      ? user?.contato_emergencia_nome || user?.meta?.contatoEmergenciaNome
+      : '') ||
+    ''
   const contatoEmergenciaParentesco =
-    activeProfile?.contato_emergencia_parentesco || user?.contato_emergencia_parentesco || ''
+    activeProfile?.contato_emergencia_parentesco ||
+    (activeProfile?.is_proprio
+      ? user?.contato_emergencia_parentesco || user?.meta?.contatoEmergenciaParentesco
+      : '') ||
+    ''
   const contatoEmergenciaTelefone =
-    activeProfile?.contato_emergencia_telefone || user?.contato_emergencia_telefone || ''
+    activeProfile?.contato_emergencia_telefone ||
+    (activeProfile?.is_proprio
+      ? user?.contato_emergencia_telefone || user?.meta?.contatoEmergenciaTelefone
+      : '') ||
+    ''
+  const numeroCarteirinha =
+    activeProfile?.numero_carteirinha ||
+    (activeProfile?.is_proprio ? user?.numero_carteirinha || user?.meta?.numeroCarteirinha : '') ||
+    ''
 
   // Monta payload unificado para exportação milimétrica em PDF
   const dadosCartao: CartaoDados = {
@@ -124,6 +150,7 @@ export default function CartaoSaude() {
     contatoEmergenciaParentesco: includeEmergencia ? contatoEmergenciaParentesco : '',
     contatoEmergenciaTelefone: includeEmergencia ? contatoEmergenciaTelefone : '',
     planoSaudeOuSus,
+    numeroCarteirinha,
     medicamentos: medsToDisplay,
     dataAtualizacao: currentDate,
   }
@@ -483,8 +510,13 @@ export default function CartaoSaude() {
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[8.5px] font-bold uppercase tracking-wider bg-[#E7F0E3] text-[#26362B] px-2 py-0.5 rounded-full border border-[#D9E2D4]">
+                        <span className="text-[8.5px] font-bold uppercase tracking-wider bg-[#E7F0E3] text-[#26362B] px-2 py-0.5 rounded-full border border-[#D9E2D4] max-w-[150px] truncate">
                           {planoSaudeOuSus.trim() || 'SUS / Particular'}
+                          {numeroCarteirinha && (
+                            <span className="ml-1 text-[7.5px] text-[#4C7A5A] font-mono">
+                              • Nº {numeroCarteirinha}
+                            </span>
+                          )}
                         </span>
                         <span className="text-[7.5px] font-semibold text-[#6B7A6F] bg-white px-1.5 py-0.5 rounded-md border border-[#D9E2D4]">
                           Frente
@@ -685,6 +717,11 @@ export default function CartaoSaude() {
                 <span className="text-[#6B7A6F] block">Plano / SUS:</span>
                 <strong className="text-sm text-[#26362B] block">
                   {planoSaudeOuSus || 'SUS / Particular'}
+                  {numeroCarteirinha && (
+                    <span className="block text-xs font-mono font-normal text-[#4C7A5A]">
+                      Carteirinha: {numeroCarteirinha}
+                    </span>
+                  )}
                 </strong>
                 {tipoSanguineo && (
                   <span className="text-[11px] text-[#4C7A5A] font-bold">

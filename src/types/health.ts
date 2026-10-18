@@ -11,6 +11,8 @@ export interface User {
   contato_emergencia_nome?: string
   contato_emergencia_telefone?: string
   contato_emergencia_parentesco?: string
+  plano_saude?: string
+  numero_carteirinha?: string
   meta?: {
     lembreteMedicamentos?: boolean
     lembreteConsultas?: boolean
@@ -34,6 +36,8 @@ export interface HealthProfile {
   contato_emergencia_nome?: string
   contato_emergencia_telefone?: string
   contato_emergencia_parentesco?: string
+  plano_saude?: string
+  numero_carteirinha?: string
   observacoes?: string
   is_proprio?: boolean
   created: string

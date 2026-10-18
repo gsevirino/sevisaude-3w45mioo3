@@ -13,6 +13,7 @@ export interface CartaoDados {
   contatoEmergenciaParentesco?: string
   contatoEmergenciaTelefone?: string
   planoSaudeOuSus?: string
+  numeroCarteirinha?: string
   medicamentos: Medicamento[]
   dataAtualizacao?: string
 }
@@ -79,18 +80,22 @@ export function drawCartaoFrente(doc: any, originX: number, originY: number, dad
   const headerY = originY + 5.5
   drawSeviSaudeLogo(doc, originX + 5, headerY, 6)
 
-  // Tag do cabeçalho à direita: Plano / SUS ou "CARTÃO DE SAÚDE"
-  const planoText = dados.planoSaudeOuSus?.trim() || 'SUS / Particular'
+  // Tag do cabeçalho à direita: Plano / SUS ou "CARTÃO DE SAÚDE" (+ Carteirinha se informada)
+  const cartStr = dados.numeroCarteirinha?.trim() ? ` • Nº ${dados.numeroCarteirinha.trim()}` : ''
+  const planoText = `${dados.planoSaudeOuSus?.trim() || 'SUS / Particular'}${cartStr}`
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(6.5)
-  const planoW = doc.getTextWidth(planoText) + 4
+  // Ajustar tamanho se tiver carteirinha longa para caber na tag
+  const fontSizePlano = planoText.length > 25 ? 5.2 : planoText.length > 18 ? 5.8 : 6.5
+  doc.setFontSize(fontSizePlano)
+  const planoW = Math.min(doc.getTextWidth(planoText) + 4, 48)
   const badgeX = originX + w - 5 - planoW
   doc.setFillColor(COR_VERDE_CLARO[0], COR_VERDE_CLARO[1], COR_VERDE_CLARO[2])
   doc.setDrawColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2])
   doc.setLineWidth(0.2)
   doc.roundedRect(badgeX, headerY - 0.5, planoW, 4.5, 1.2, 1.2, 'FD')
   doc.setTextColor(COR_PRIMARIA_ESCURA[0], COR_PRIMARIA_ESCURA[1], COR_PRIMARIA_ESCURA[2])
-  doc.text(planoText, badgeX + 2, headerY + 2.7)
+  const planoTrunc = doc.splitTextToSize(planoText, planoW - 2)[0]
+  doc.text(planoTrunc, badgeX + 2, headerY + 2.7)
 
   // Linha sutil separando cabeçalho
   doc.setDrawColor(COR_BORDA_CARD[0], COR_BORDA_CARD[1], COR_BORDA_CARD[2])

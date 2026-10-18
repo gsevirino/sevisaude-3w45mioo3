@@ -69,6 +69,8 @@ export const HealthProfileProvider: React.FC<{ children: React.ReactNode }> = ({
               user.contato_emergencia_telefone || user.meta?.contatoEmergenciaTelefone || '',
             contato_emergencia_parentesco:
               user.contato_emergencia_parentesco || user.meta?.contatoEmergenciaParentesco || '',
+            plano_saude: user.plano_saude || user.meta?.planoSaude || '',
+            numero_carteirinha: user.numero_carteirinha || user.meta?.numeroCarteirinha || '',
           })
           list = [newOwn, ...list]
           ownProfile = newOwn
