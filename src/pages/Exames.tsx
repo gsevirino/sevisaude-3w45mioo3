@@ -6,12 +6,14 @@ import {
   deleteExame,
   getMedicos,
   getConsultas,
+  getClinicas,
   getFileUrl,
 } from '@/services/healthService'
 import type {
   Exame,
   Medico,
   Consulta,
+  Clinica,
   TipoExame,
   StatusExame,
   HistoricoStatusExame,
@@ -26,6 +28,7 @@ import { QuickCreateSelect } from '@/components/QuickCreateSelect'
 import { QuickCreateMedicoModal } from '@/components/QuickCreateMedicoModal'
 import { QuickCreateConsultaModal } from '@/components/QuickCreateConsultaModal'
 import { QuickCreateExameModal } from '@/components/QuickCreateExameModal'
+import { QuickCreateClinicaModal } from '@/components/QuickCreateClinicaModal'
 import {
   TestTube,
   Plus,
@@ -84,6 +87,7 @@ export default function Exames() {
   const [exames, setExames] = useState<Exame[]>([])
   const [medicos, setMedicos] = useState<Medico[]>([])
   const [consultas, setConsultas] = useState<Consulta[]>([])
+  const [clinicas, setClinicas] = useState<Clinica[]>([])
   const [loading, setLoading] = useState(true)
 
   useRealtime('exames', () => triggerRefresh())
@@ -103,6 +107,7 @@ export default function Exames() {
   const [saving, setSaving] = useState(false)
   const [quickMedicoModalOpen, setQuickMedicoModalOpen] = useState(false)
   const [quickConsultaModalOpen, setQuickConsultaModalOpen] = useState(false)
+  const [quickClinicaModalOpen, setQuickClinicaModalOpen] = useState(false)
 
   // Fields
   const [nome, setNome] = useState('')
@@ -110,6 +115,7 @@ export default function Exames() {
   const [categoria, setCategoria] = useState('')
   const [medicoId, setMedicoId] = useState('')
   const [consultaRelacionadaId, setConsultaRelacionadaId] = useState('')
+  const [clinicaId, setClinicaId] = useState('')
   const [dataSolicitado, setDataSolicitado] = useState('')
   const [dataValidade, setDataValidade] = useState('')
   const [localRealizacao, setLocalRealizacao] = useState('')
@@ -147,14 +153,16 @@ export default function Exames() {
   const loadData = useCallback(async () => {
     const profId = activeProfile?.id
     try {
-      const [exs, docs, cons] = await Promise.all([
+      const [exs, docs, cons, cls] = await Promise.all([
         getExames(profId),
         getMedicos(profId),
         getConsultas(profId),
+        getClinicas(profId),
       ])
       setExames(exs)
       setMedicos(docs)
       setConsultas(cons)
+      setClinicas(cls)
     } catch (err) {
       console.error(err)
       toast({
@@ -178,6 +186,7 @@ export default function Exames() {
     setCategoria('')
     setMedicoId(medicos[0]?.id || '')
     setConsultaRelacionadaId('')
+    setClinicaId('')
     const today = extrairDataIso(new Date().toISOString())
     setDataSolicitado(today)
     setDataValidade('')
@@ -203,6 +212,7 @@ export default function Exames() {
     setCategoria(ex.categoria || '')
     setMedicoId(ex.medico || '')
     setConsultaRelacionadaId(ex.consulta_relacionada || '')
+    setClinicaId(ex.clinica || '')
     setDataSolicitado(extrairDataIso(ex.data_solicitado))
     setDataValidade(extrairDataIso(ex.data_validade))
     setLocalRealizacao(ex.local_realizacao || '')
@@ -263,6 +273,11 @@ export default function Exames() {
       if (categoria.trim()) formData.append('categoria', categoria.trim())
       formData.append('medico', medicoId)
       if (consultaRelacionadaId) formData.append('consulta_relacionada', consultaRelacionadaId)
+      if (clinicaId) {
+        formData.append('clinica', clinicaId)
+      } else {
+        formData.append('clinica', '')
+      }
       formData.append('data_solicitado', dataSolicitado)
       if (dataValidade) formData.append('data_validade', dataValidade)
       if (localRealizacao.trim()) formData.append('local_realizacao', localRealizacao.trim())
@@ -472,6 +487,7 @@ export default function Exames() {
     const matchTipo = ex.tipo?.toLowerCase().includes(q)
     const matchCat = ex.categoria?.toLowerCase().includes(q)
     const matchDoc = ex.expand?.medico?.nome?.toLowerCase().includes(q)
+    const matchClinica = ex.expand?.clinica?.nome?.toLowerCase().includes(q)
     const matchLocal = ex.local_realizacao?.toLowerCase().includes(q)
     const matchPrep = ex.instrucoes_preparo?.toLowerCase().includes(q)
 
@@ -479,7 +495,7 @@ export default function Exames() {
       matchesStatus &&
       matchesMed &&
       matchesLoc &&
-      (matchNome || matchTipo || matchCat || matchDoc || matchLocal || matchPrep)
+      (matchNome || matchTipo || matchCat || matchDoc || matchClinica || matchLocal || matchPrep)
     )
   })
 
@@ -749,7 +765,7 @@ export default function Exames() {
                         })()}
 
                       {/* Agendamento e Local */}
-                      {(ex.data_hora_agendada || ex.local_realizacao) && (
+                      {(ex.data_hora_agendada || ex.expand?.clinica || ex.local_realizacao) && (
                         <div className="flex flex-wrap items-center gap-4 text-xs text-[#26362B] mt-2 bg-[#F6F4EF]/70 p-2.5 rounded-xl border border-[#D9E2D4]/60">
                           {ex.data_hora_agendada && (
                             <span className="flex items-center gap-1.5 font-semibold text-[#4C7A5A]">
@@ -757,15 +773,30 @@ export default function Exames() {
                               Agendado: {formatarDataHora(ex.data_hora_agendada)}
                             </span>
                           )}
-                          {ex.local_realizacao && (
+                          {(ex.expand?.clinica || ex.local_realizacao) && (
                             <span className="flex items-center gap-1.5">
                               <MapPin className="w-3.5 h-3.5 text-[#4C7A5A]" />
-                              Local: <strong>{ex.local_realizacao}</strong>
+                              Local:{' '}
+                              {ex.expand?.clinica ? (
+                                <span>
+                                  <strong>{ex.expand.clinica.nome}</strong>
+                                  {ex.expand.clinica.endereco && (
+                                    <span className="text-[#6B7A6F] font-normal">
+                                      {' '}
+                                      — {ex.expand.clinica.endereco}
+                                      {ex.expand.clinica.cidade
+                                        ? `, ${ex.expand.clinica.cidade}`
+                                        : ''}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <strong>{ex.local_realizacao}</strong>
+                              )}
                             </span>
                           )}
                         </div>
                       )}
-
                       {/* Preparo */}
                       {ex.instrucoes_preparo && (
                         <div className="mt-2 text-xs bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/60 text-amber-950 flex items-start gap-2">
@@ -1136,7 +1167,7 @@ export default function Exames() {
                   Agendamento e Local de Coleta / Execução
                 </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-[#26362B] mb-1">
                       Data agendada
@@ -1162,21 +1193,62 @@ export default function Exames() {
                     />
                     <span className="text-[10px] text-[#6B7A6F] block mt-0.5">hh:mm</span>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-[#26362B] mb-1">
-                      Local de realização
-                    </label>
-                    <input
-                      type="text"
-                      value={localRealizacao}
-                      onChange={(e) => setLocalRealizacao(e.target.value)}
-                      placeholder="Ex.: Laboratório Fleury - Jardins"
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
-                    />
-                  </div>
                 </div>
 
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-[#26362B]">
+                      Local de coleta / realização
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setQuickClinicaModalOpen(true)}
+                      className="text-[11px] font-semibold text-[#4C7A5A] hover:underline cursor-pointer"
+                    >
+                      + Cadastrar novo local
+                    </button>
+                  </div>
+
+                  <QuickCreateSelect
+                    value={clinicaId}
+                    onChange={(val) => {
+                      setClinicaId(val)
+                      if (val) {
+                        const cl = clinicas.find((item) => item.id === val)
+                        if (cl) {
+                          const partes = [cl.nome, cl.endereco, cl.bairro, cl.cidade]
+                            .filter(Boolean)
+                            .join(' - ')
+                          setLocalRealizacao(partes || cl.nome)
+                        }
+                      }
+                    }}
+                    allowEmpty
+                    emptyOptionLabel="— Nenhum local vinculado (digitar texto livre abaixo) —"
+                    placeholder="Selecione um laboratório ou clínica cadastrada..."
+                    quickCreateLabel="+ Cadastrar nova clínica/laboratório…"
+                    quickCreateHint="Salve endereço e contatos para reutilizar"
+                    onQuickCreate={() => setQuickClinicaModalOpen(true)}
+                    options={clinicas.map((cl) => {
+                      const localResumo = [cl.tipo, cl.endereco, cl.cidade]
+                        .filter(Boolean)
+                        .join(' · ')
+                      return {
+                        value: cl.id,
+                        label: cl.nome,
+                        sublabel: localResumo || undefined,
+                      }
+                    })}
+                  />
+
+                  <input
+                    type="text"
+                    value={localRealizacao}
+                    onChange={(e) => setLocalRealizacao(e.target.value)}
+                    placeholder="Ou digite o local em texto livre (ex.: Fleury - Jardins, Delboni Auriemo)"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D9E2D4] bg-white text-xs outline-none focus:ring-2 focus:ring-[#4C7A5A]"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-semibold text-[#26362B] mb-1">
                     Instruções de preparo do exame
@@ -1478,6 +1550,28 @@ export default function Exames() {
           if (!medicoId && novaConsulta.medico) {
             setMedicoId(novaConsulta.medico)
           }
+        }}
+      />
+
+      {/* Quick Create Clínica Modal */}
+      <QuickCreateClinicaModal
+        open={quickClinicaModalOpen}
+        onClose={() => setQuickClinicaModalOpen(false)}
+        onSuccess={(novaClinica) => {
+          setClinicas((prev) => {
+            if (prev.some((c) => c.id === novaClinica.id)) return prev
+            return [novaClinica, ...prev]
+          })
+          setClinicaId(novaClinica.id)
+          const partes = [
+            novaClinica.nome,
+            novaClinica.endereco,
+            novaClinica.bairro,
+            novaClinica.cidade,
+          ]
+            .filter(Boolean)
+            .join(' - ')
+          setLocalRealizacao(partes || novaClinica.nome)
         }}
       />
 

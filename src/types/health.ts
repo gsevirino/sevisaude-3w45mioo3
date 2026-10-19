@@ -57,6 +57,9 @@ export interface ProfilePermissions {
   // Exames
   exames_ver: boolean
   exames_editar: boolean
+  // Clínicas e locais
+  clinicas_ver?: boolean
+  clinicas_editar?: boolean
   // Documentos
   documentos_ver: boolean
   documentos_editar: boolean
@@ -140,6 +143,24 @@ export interface AccessAuditLog {
   grantee_email?: string
   metadata?: any
   data_hora: string
+  created: string
+  updated: string
+}
+
+export type TipoClinica = 'Clínica' | 'Laboratório' | 'Consultório' | 'Hospital' | 'Outro'
+
+export interface Clinica {
+  id: string
+  nome: string
+  tipo?: TipoClinica
+  telefone?: string
+  endereco?: string
+  bairro?: string
+  cidade?: string
+  cep?: string
+  observacoes?: string
+  userId: string
+  profile?: string
   created: string
   updated: string
 }
@@ -244,8 +265,10 @@ export type StatusConsulta = 'Agendada' | 'Realizada' | 'Cancelada'
 export interface Consulta {
   id: string
   medico: string
+  clinica?: string
   expand?: {
     medico?: Medico
+    clinica?: Clinica
   }
   data: string
   horario: string
@@ -301,9 +324,11 @@ export interface Exame {
   tipo: TipoExame
   categoria?: string
   medico: string
+  clinica?: string
   expand?: {
     medico?: Medico
     consulta_relacionada?: Consulta
+    clinica?: Clinica
   }
   data_solicitado: string
   data_realizado?: string

@@ -421,13 +421,18 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
           const aut = c.numero_autorizacao
             ? `${c.numero_autorizacao}${c.validade_autorizacao ? ` (até ${formatarData(c.validade_autorizacao)})` : ''}`
             : '—'
+          const localStr = c.expand?.clinica
+            ? [c.expand.clinica.nome, c.expand.clinica.endereco, c.expand.clinica.cidade]
+                .filter(Boolean)
+                .join(' - ')
+            : c.local || '—'
           return [
             formatarData(c.data),
             formatarHora(c.horario) || '—',
             c.expand?.medico?.nome || 'Médico não informado',
             c.expand?.medico?.especialidade || '—',
             c.tipo,
-            c.local || '—',
+            localStr,
             aut,
           ]
         })
@@ -479,13 +484,18 @@ export function exportarResumoGeralPDF(data: ExportDataPayload): void {
           const aut = e.numero_autorizacao
             ? `${e.numero_autorizacao}${e.validade_autorizacao ? ` (até ${formatarData(e.validade_autorizacao)})` : ''}`
             : '—'
+          const localStr = e.expand?.clinica
+            ? [e.expand.clinica.nome, e.expand.clinica.endereco, e.expand.clinica.cidade]
+                .filter(Boolean)
+                .join(' - ')
+            : e.local_realizacao || '—'
           return [
             e.nome,
             e.tipo,
             e.status,
             formatarData(e.data_solicitado),
             e.data_hora_agendada ? formatarDataHora(e.data_hora_agendada) : 'Não agendado',
-            e.local_realizacao || '—',
+            localStr,
             aut,
           ]
         })
@@ -726,6 +736,11 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
       const aut = c.numero_autorizacao
         ? `${c.numero_autorizacao}${c.validade_autorizacao ? ` (até ${formatarData(c.validade_autorizacao)})` : ''}`
         : '—'
+      const localStr = c.expand?.clinica
+        ? [c.expand.clinica.nome, c.expand.clinica.endereco, c.expand.clinica.cidade]
+            .filter(Boolean)
+            .join(' - ')
+        : c.local || '—'
       return [
         formatarData(c.data),
         formatarHora(c.horario) || '—',
@@ -733,7 +748,7 @@ export function exportarConsultasPDF(data: ExportDataPayload): void {
         c.expand?.medico?.nome || 'Médico não informado',
         c.expand?.medico?.especialidade || '—',
         c.tipo,
-        c.local || '—',
+        localStr,
         aut,
         c.motivo_atendimento || c.anotacoes || '—',
       ]
@@ -894,17 +909,13 @@ export function exportarExamesPDF(data: ExportDataPayload): void {
           const aut = e.numero_autorizacao
             ? `${e.numero_autorizacao}${e.validade_autorizacao ? ` (até ${formatarData(e.validade_autorizacao)})` : ''}`
             : '—'
+          const localStr = e.expand?.clinica
+            ? [e.expand.clinica.nome, e.expand.clinica.endereco, e.expand.clinica.cidade]
+                .filter(Boolean)
+                .join(' - ')
+            : e.local_realizacao || '—'
 
-          return [
-            e.nome,
-            e.tipo,
-            e.status,
-            datas,
-            aut,
-            e.local_realizacao || '—',
-            medico,
-            observacoes,
-          ]
+          return [e.nome, e.tipo, e.status, datas, aut, localStr, medico, observacoes]
         })
       : [['Nenhum exame cadastrado.', '', '', '', '', '', '', '']]
 
@@ -1175,22 +1186,37 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
           const aut = c.numero_autorizacao
             ? `${c.numero_autorizacao}${c.validade_autorizacao ? ` (até ${formatarData(c.validade_autorizacao)})` : ''}`
             : '—'
+          const localStr = c.expand?.clinica
+            ? [c.expand.clinica.nome, c.expand.clinica.endereco, c.expand.clinica.cidade]
+                .filter(Boolean)
+                .join(' - ')
+            : c.local || '—'
           return [
             formatarData(c.data),
             formatarHora(c.horario) || '—',
             c.status,
             c.expand?.medico?.nome || '—',
             c.tipo,
+            localStr,
             aut,
             c.motivo_atendimento || c.anotacoes || '—',
           ]
         })
-      : [['Nenhuma consulta registrada.', '', '', '', '', '', '']]
+      : [['Nenhuma consulta registrada.', '', '', '', '', '', '', '']]
 
   callAutoTable(doc, {
     startY,
     head: [
-      ['Data', 'Horário', 'Status', 'Profissional', 'Tipo', 'Autorização', 'Motivo / Anotação'],
+      [
+        'Data',
+        'Horário',
+        'Status',
+        'Profissional',
+        'Tipo',
+        'Local',
+        'Autorização',
+        'Motivo / Anotação',
+      ],
     ],
     body: consultRows,
     theme: 'striped',
@@ -1220,13 +1246,18 @@ export function exportarDossieCompletoPDF(data: ExportDataPayload): void {
           const aut = e.numero_autorizacao
             ? `${e.numero_autorizacao}${e.validade_autorizacao ? ` (até ${formatarData(e.validade_autorizacao)})` : ''}`
             : '—'
+          const localStr = e.expand?.clinica
+            ? [e.expand.clinica.nome, e.expand.clinica.endereco, e.expand.clinica.cidade]
+                .filter(Boolean)
+                .join(' - ')
+            : e.local_realizacao || '—'
           return [
             e.nome,
             e.tipo,
             e.status,
             formatarData(e.data_solicitado),
             e.data_realizado ? formatarData(e.data_realizado) : '—',
-            e.local_realizacao || '—',
+            localStr,
             aut,
           ]
         })
@@ -1408,6 +1439,11 @@ export function exportarConsultasCSV(data: ExportDataPayload): void {
 
   const lines = [header.map(escapeCsvCell).join(';')]
   ;(data.consultas || []).forEach((c) => {
+    const localStr = c.expand?.clinica
+      ? [c.expand.clinica.nome, c.expand.clinica.endereco, c.expand.clinica.cidade]
+          .filter(Boolean)
+          .join(' - ')
+      : c.local || ''
     lines.push(
       [
         data.profile.nome || '',
@@ -1420,7 +1456,7 @@ export function exportarConsultasCSV(data: ExportDataPayload): void {
         c.expand?.medico?.especialidade || '',
         c.expand?.medico?.crm || '',
         c.tipo,
-        c.local || '',
+        localStr,
         c.numero_autorizacao || '',
         formatarData(c.validade_autorizacao),
         c.motivo_atendimento || '',
@@ -1464,6 +1500,11 @@ export function exportarExamesCSV(data: ExportDataPayload): void {
 
   const lines = [header.map(escapeCsvCell).join(';')]
   ;(data.exames || []).forEach((e) => {
+    const localStr = e.expand?.clinica
+      ? [e.expand.clinica.nome, e.expand.clinica.endereco, e.expand.clinica.cidade]
+          .filter(Boolean)
+          .join(' - ')
+      : e.local_realizacao || ''
     lines.push(
       [
         data.profile.nome || '',
@@ -1479,7 +1520,7 @@ export function exportarExamesCSV(data: ExportDataPayload): void {
         e.numero_autorizacao || '',
         formatarData(e.validade_autorizacao),
         e.expand?.medico?.nome || '',
-        e.local_realizacao || '',
+        localStr,
         e.instrucoes_preparo || '',
         e.observacoes || '',
       ]

@@ -8,11 +8,39 @@ import type {
   Documento,
   StatusMedicamento,
   StatusExame,
+  Clinica,
 } from '@/types/health'
 
 export function getFileUrl(collectionNameOrId: string, recordId: string, filename: string): string {
   if (!filename) return ''
   return pb.files.getUrl({ collectionId: collectionNameOrId, id: recordId } as any, filename)
+}
+
+// ==================== CLINICAS E LOCAIS ====================
+export async function getClinicas(profileId?: string): Promise<Clinica[]> {
+  const filter = profileId ? `profile = "${profileId}"` : undefined
+  return pb.collection('clinicas').getFullList<Clinica>({
+    filter,
+    sort: 'nome',
+  })
+}
+
+export async function createClinica(
+  data: Omit<Clinica, 'id' | 'created' | 'updated' | 'userId'>,
+  profileId?: string,
+): Promise<Clinica> {
+  const userId = pb.authStore.model?.id
+  return pb
+    .collection('clinicas')
+    .create<Clinica>({ ...data, userId, profile: profileId || data.profile })
+}
+
+export async function updateClinica(id: string, data: Partial<Clinica>): Promise<Clinica> {
+  return pb.collection('clinicas').update<Clinica>(id, data)
+}
+
+export async function deleteClinica(id: string): Promise<boolean> {
+  return pb.collection('clinicas').delete(id)
 }
 
 // ==================== MEDICOS ====================
@@ -188,7 +216,7 @@ export async function getConsultas(profileId?: string): Promise<Consulta[]> {
   const records = await pb.collection('consultas').getFullList<Consulta>({
     filter,
     sort: '-data',
-    expand: 'medico',
+    expand: 'medico,clinica',
   })
   return records.map(normalizeConsulta)
 }
@@ -248,13 +276,13 @@ export async function createConsulta(
     if (profileId && !data.has('profile')) {
       data.append('profile', profileId)
     }
-    created = await pb.collection('consultas').create<Consulta>(data, { expand: 'medico' })
+    created = await pb.collection('consultas').create<Consulta>(data, { expand: 'medico,clinica' })
   } else {
     created = await pb
       .collection('consultas')
       .create<Consulta>(
         { ...data, userId, profile: profileId || data.profile },
-        { expand: 'medico' },
+        { expand: 'medico,clinica' },
       )
   }
   return normalizeConsulta(created)
@@ -266,9 +294,13 @@ export async function updateConsulta(
 ): Promise<Consulta> {
   let updated: Consulta
   if (data instanceof FormData) {
-    updated = await pb.collection('consultas').update<Consulta>(id, data, { expand: 'medico' })
+    updated = await pb
+      .collection('consultas')
+      .update<Consulta>(id, data, { expand: 'medico,clinica' })
   } else {
-    updated = await pb.collection('consultas').update<Consulta>(id, data, { expand: 'medico' })
+    updated = await pb
+      .collection('consultas')
+      .update<Consulta>(id, data, { expand: 'medico,clinica' })
   }
   return normalizeConsulta(updated)
 }
@@ -283,7 +315,7 @@ export async function getExames(profileId?: string): Promise<Exame[]> {
   const records = await pb.collection('exames').getFullList<Exame>({
     filter,
     sort: '-data_solicitado',
-    expand: 'medico,consulta_relacionada',
+    expand: 'medico,consulta_relacionada,clinica',
   })
   return records.map(normalizeExame)
 }
@@ -337,14 +369,14 @@ export async function createExame(
       formDataOrObj.append('profile', profileId)
     }
     created = await pb.collection('exames').create<Exame>(formDataOrObj, {
-      expand: 'medico,consulta_relacionada',
+      expand: 'medico,consulta_relacionada,clinica',
     })
   } else {
     created = await pb
       .collection('exames')
       .create<Exame>(
         { ...formDataOrObj, userId, profile: profileId || formDataOrObj.profile },
-        { expand: 'medico,consulta_relacionada' },
+        { expand: 'medico,consulta_relacionada,clinica' },
       )
   }
   return normalizeExame(created)
@@ -355,7 +387,7 @@ export async function updateExame(
   formDataOrObj: FormData | Partial<Exame>,
 ): Promise<Exame> {
   const updated = await pb.collection('exames').update<Exame>(id, formDataOrObj as any, {
-    expand: 'medico,consulta_relacionada',
+    expand: 'medico,consulta_relacionada,clinica',
   })
   return normalizeExame(updated)
 }

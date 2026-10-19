@@ -25,6 +25,7 @@ import Medicamentos from '@/pages/Medicamentos'
 import Consultas from '@/pages/Consultas'
 import Exames from '@/pages/Exames'
 import Medicos from '@/pages/Medicos'
+import Clinicas from '@/pages/Clinicas'
 import Documentos from '@/pages/Documentos'
 import CartaoSaude from '@/pages/CartaoSaude'
 import Calendario from '@/pages/Calendario'
@@ -69,6 +70,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/medicamentos" element={<Medicamentos />} />
                   <Route path="/medicos" element={<Medicos />} />
+                  <Route path="/clinicas" element={<Clinicas />} />
                   <Route path="/consultas" element={<Consultas />} />
                   <Route path="/exames" element={<Exames />} />
                   <Route path="/calendario" element={<Calendario />} />

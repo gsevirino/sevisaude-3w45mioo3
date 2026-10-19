@@ -255,6 +255,7 @@ const CLINICAL_COLLECTIONS = [
   'medicamentos',
   'consultas',
   'exames',
+  'clinicas',
   'alteracoes_medicamentos',
   'profile_access_grants',
 ]
