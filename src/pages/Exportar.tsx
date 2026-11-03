@@ -620,7 +620,7 @@ export default function Exportar() {
             </div>
           </div>
 
-          {/* Card 4: Exames (5 Estados) */}
+          {/* Card 4: Exames */}
           <div className="bg-white rounded-3xl p-5 border border-[#D9E2D4] shadow-sm flex flex-col justify-between space-y-4 hover:border-[#4C7A5A]/50 transition">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -631,12 +631,9 @@ export default function Exportar() {
                   {exames.length} exames
                 </span>
               </div>
-              <h3 className="font-serif italic text-lg font-bold text-[#26362B]">
-                Exames e 5 Estados
-              </h3>
+              <h3 className="font-serif italic text-lg font-bold text-[#26362B]">Exames</h3>
               <p className="text-xs text-[#6B7A6F] leading-relaxed">
-                Acompanhamento nos 5 estados: Pendente, Agendado, Realizado, Finalizado e Cancelado,
-                com preparo e laboratórios.
+                Registro de exames com estado, preparo, laboratórios e resultados.
               </p>
             </div>
 
